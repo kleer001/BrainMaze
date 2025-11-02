@@ -210,10 +210,29 @@ class Player(pygame.sprite.Sprite):
         )
 
         if can_move_cf:
-            # Apply corner forgiveness adjustment
+            # Apply corner forgiveness adjustment (snap to center)
             self.pos.x = adj_x
             self.pos.y = adj_y
-            return True
+
+            # Recalculate tile positions after snapping to center
+            current_tile_x, current_tile_y = self.get_tile_position()
+
+            # Recalculate target tile position
+            target_tile_x, target_tile_y = current_tile_x, current_tile_y
+            if direction == 'up':
+                target_tile_y -= 1
+            elif direction == 'down':
+                target_tile_y += 1
+            elif direction == 'left':
+                target_tile_x -= 1
+            elif direction == 'right':
+                target_tile_x += 1
+
+            # Recheck if movement is valid after snapping
+            return self.collision_manager.can_move_to_tile(
+                current_tile_x, current_tile_y,
+                target_tile_x, target_tile_y
+            )
 
         return False
     
