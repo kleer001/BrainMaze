@@ -1,6 +1,6 @@
 """
 Player entity with buffered input and corner forgiveness.
-Phase A1: Movement in empty space (no walls yet).
+Phase A2: Movement with wall collision detection.
 """
 
 import pygame
@@ -28,16 +28,20 @@ class Player(pygame.sprite.Sprite):
     Player sprite with continuous movement and industry-standard input buffering.
     """
     
-    def __init__(self, x, y, config):
+    def __init__(self, x, y, config, collision_manager):
         """
         Initialize player at grid position (x, y).
-        
+
         Args:
             x: Grid X position (tile coordinates)
             y: Grid Y position (tile coordinates)
             config: ConfigParser object with gameplay settings
+            collision_manager: CollisionManager instance for wall detection
         """
         super().__init__()
+
+        # Store collision manager
+        self.collision_manager = collision_manager
         
         # Load configuration
         self.tile_size = config.getint('Maze', 'tile_size')
@@ -165,44 +169,53 @@ class Player(pygame.sprite.Sprite):
         
         # Update rect position (for rendering and collision)
         self.rect.center = (int(self.pos.x), int(self.pos.y))
-        
-        # Keep player on screen (temporary, will be replaced by wall collision)
-        screen_width = self.tile_size * 20  # 20x20 grid
-        screen_height = self.tile_size * 20
-        
-        half_tile = self.tile_size // 2
-        if self.pos.x < half_tile:
-            self.pos.x = half_tile
-            self.is_moving = False
-            self.velocity = Vector2(0, 0)
-        elif self.pos.x > screen_width - half_tile:
-            self.pos.x = screen_width - half_tile
-            self.is_moving = False
-            self.velocity = Vector2(0, 0)
-            
-        if self.pos.y < half_tile:
-            self.pos.y = half_tile
-            self.is_moving = False
-            self.velocity = Vector2(0, 0)
-        elif self.pos.y > screen_height - half_tile:
-            self.pos.y = screen_height - half_tile
-            self.is_moving = False
-            self.velocity = Vector2(0, 0)
     
     def _can_move_in_direction(self, direction):
         """
         Check if movement in direction is valid (wall collision check).
-        Phase A1: Always returns True (no walls yet).
-        Phase A2: Will check maze walls with corner forgiveness.
-        
+        Includes corner forgiveness for smooth movement.
+
         Args:
             direction: 'up', 'down', 'left', or 'right'
-            
+
         Returns:
             bool: True if movement is valid
         """
-        # TODO Phase A2: Implement wall collision checking with corner forgiveness
-        return True
+        # Get current tile position
+        current_tile_x, current_tile_y = self.get_tile_position()
+
+        # Calculate target tile position
+        target_tile_x, target_tile_y = current_tile_x, current_tile_y
+        if direction == 'up':
+            target_tile_y -= 1
+        elif direction == 'down':
+            target_tile_y += 1
+        elif direction == 'left':
+            target_tile_x -= 1
+        elif direction == 'right':
+            target_tile_x += 1
+
+        # Check basic wall collision
+        can_move = self.collision_manager.can_move_to_tile(
+            current_tile_x, current_tile_y,
+            target_tile_x, target_tile_y
+        )
+
+        if can_move:
+            return True
+
+        # If basic check fails, try corner forgiveness
+        can_move_cf, adj_x, adj_y = self.collision_manager.check_corner_forgiveness(
+            self.pos.x, self.pos.y, direction
+        )
+
+        if can_move_cf:
+            # Apply corner forgiveness adjustment
+            self.pos.x = adj_x
+            self.pos.y = adj_y
+            return True
+
+        return False
     
     def _start_movement(self, direction):
         """
