@@ -1,8 +1,8 @@
 """
-Brain Maze - Phase A1: Player Movement
+Brain Maze - Phase A2: Maze Generation & Wall Collision
 Educational fact collection game.
 
-Phase A1: Player moves smoothly in empty space with buffered input.
+Phase A2: Player navigates procedurally generated maze with wall collision.
 """
 
 import pygame
@@ -10,8 +10,10 @@ import sys
 import configparser
 from pathlib import Path
 
-# Import player entity
+# Import entities and systems
 from entities.player import Player
+from systems.maze import Maze
+from systems.collision import CollisionManager
 
 
 class BrainMaze:
@@ -43,18 +45,28 @@ class BrainMaze:
         
         # Load colors
         self.bg_color = tuple(map(int, self.config.get('Colors', 'background').split(',')))
-        
+        self.wall_color = tuple(map(int, self.config.get('Colors', 'wall').split(',')))
+        self.floor_color = tuple(map(int, self.config.get('Colors', 'floor').split(',')))
+        self.start_color = tuple(map(int, self.config.get('Colors', 'start_tile').split(',')))
+        self.end_color = tuple(map(int, self.config.get('Colors', 'end_tile').split(',')))
+
         # Game state
         self.running = True
-        
+
+        # Generate maze
+        grid_size = self.config.getint('Maze', 'grid_size')
+        tile_size = self.config.getint('Maze', 'tile_size')
+        self.maze = Maze(grid_size, tile_size)
+
+        # Create collision manager
+        self.collision_manager = CollisionManager(self.maze, self.config)
+
         # Sprite groups
         self.all_sprites = pygame.sprite.Group()
-        
-        # Create player at start position (center of grid for now)
-        grid_size = self.config.getint('Maze', 'grid_size')
-        start_x = grid_size // 2
-        start_y = grid_size // 2
-        self.player = Player(start_x, start_y, self.config)
+
+        # Create player at maze start position
+        start_x, start_y = self.maze.get_start_position()
+        self.player = Player(start_x, start_y, self.config, self.collision_manager)
         self.all_sprites.add(self.player)
         
     def handle_events(self):
@@ -83,32 +95,22 @@ class BrainMaze:
         """Draw everything to screen."""
         # Clear screen
         self.screen.fill(self.bg_color)
-        
+
+        # Draw maze
+        colors = {
+            'floor': self.floor_color,
+            'wall': self.wall_color,
+            'start': self.start_color,
+            'end': self.end_color
+        }
+        self.maze.render(self.screen, colors)
+
         # Draw all sprites
         self.all_sprites.draw(self.screen)
-        
-        # Optional: Draw grid lines for development
-        self._draw_grid()
-        
+
         # Update display
         pygame.display.flip()
-    
-    def _draw_grid(self):
-        """Draw grid lines for visual reference (development only)."""
-        tile_size = self.config.getint('Maze', 'tile_size')
-        grid_size = self.config.getint('Maze', 'grid_size')
-        grid_color = (50, 50, 60)  # Subtle grid lines
-        
-        # Vertical lines
-        for x in range(grid_size + 1):
-            px = x * tile_size
-            pygame.draw.line(self.screen, grid_color, (px, 0), (px, self.window_height), 1)
-        
-        # Horizontal lines
-        for y in range(grid_size + 1):
-            py = y * tile_size
-            pygame.draw.line(self.screen, grid_color, (0, py), (self.window_width, py), 1)
-    
+
     def run(self):
         """Main game loop."""
         while self.running:
