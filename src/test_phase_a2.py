@@ -8,7 +8,7 @@ import configparser
 from pathlib import Path
 
 # Import systems
-from systems.maze import Maze
+from systems.maze import Maze, WALL, PATH
 from systems.collision import CollisionManager
 
 
@@ -18,9 +18,10 @@ def test_maze_generation():
 
     maze = Maze(20, 40)
 
-    # Check that maze has grid
-    assert len(maze.grid) == 20, "Maze should have 20 rows"
-    assert len(maze.grid[0]) == 20, "Maze should have 20 columns"
+    # Check that maze has grid (should be 2*((20-1)//2)+1 = 19)
+    expected_size = 2 * ((20 - 1) // 2) + 1
+    assert len(maze.grid) == expected_size, f"Maze should have {expected_size} rows"
+    assert len(maze.grid[0]) == expected_size, f"Maze should have {expected_size} columns"
 
     # Check that start and end positions exist
     assert maze.start_pos is not None, "Start position should be set"
@@ -28,18 +29,24 @@ def test_maze_generation():
     assert maze.start_pos != maze.end_pos, "Start and end should be different"
 
     print(f"  ✓ Maze generated: {len(maze.grid)}x{len(maze.grid[0])} grid")
+    print(f"  ✓ Path cells: {maze.path_size}x{maze.path_size}")
     print(f"  ✓ Start position: {maze.start_pos}")
     print(f"  ✓ End position: {maze.end_pos}")
 
-    # Check that all cells were visited (maze is complete)
-    unvisited = 0
-    for row in maze.grid:
-        for cell in row:
-            if not cell.visited:
-                unvisited += 1
+    # Check that we have both walls and paths
+    wall_count = sum(1 for row in maze.grid for cell in row if cell == WALL)
+    path_count = sum(1 for row in maze.grid for cell in row if cell == PATH)
 
-    assert unvisited == 0, "All cells should be visited"
-    print(f"  ✓ All cells visited (maze is complete)")
+    assert wall_count > 0, "Maze should have walls"
+    assert path_count > 0, "Maze should have paths"
+    print(f"  ✓ Maze has {wall_count} wall cells and {path_count} path cells")
+
+    # Check that start and end positions are paths
+    start_x, start_y = maze.start_pos
+    end_x, end_y = maze.end_pos
+    assert maze.grid[start_y][start_x] == PATH, "Start position should be a path"
+    assert maze.grid[end_y][end_x] == PATH, "End position should be a path"
+    print(f"  ✓ Start and end positions are valid paths")
 
     return maze
 
@@ -48,28 +55,41 @@ def test_wall_detection(maze):
     """Test wall detection."""
     print("\nTesting wall detection...")
 
-    # Test that we can't move through walls
-    cell = maze.grid[0][0]
-    x, y = 0, 0
+    # Test that we can't move to wall cells
+    # Find a wall cell
+    wall_found = False
+    for y in range(maze.grid_size):
+        for x in range(maze.grid_size):
+            if maze.grid[y][x] == WALL:
+                # Try to move to this wall from an adjacent path (if it exists)
+                for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
+                    from_x, from_y = x - dx, y - dy
+                    if maze._is_valid_grid_cell(from_x, from_y) and maze.grid[from_y][from_x] == PATH:
+                        can_move = maze.can_move_to(from_x, from_y, x, y)
+                        assert not can_move, f"Should not be able to move to wall at ({x}, {y})"
+                        wall_found = True
+                        break
+                if wall_found:
+                    break
+        if wall_found:
+            break
 
-    # Check each direction
-    directions = ['top', 'right', 'bottom', 'left']
-    for direction in directions:
-        has_wall = cell.walls[direction]
-        if direction == 'top':
-            can_move = maze.can_move_to(x, y, x, y - 1)
-        elif direction == 'right':
-            can_move = maze.can_move_to(x, y, x + 1, y)
-        elif direction == 'bottom':
-            can_move = maze.can_move_to(x, y, x, y + 1)
-        elif direction == 'left':
-            can_move = maze.can_move_to(x, y, x - 1, y)
+    assert wall_found, "Should have found at least one wall to test"
+    print(f"  ✓ Wall detection working correctly - can't move to walls")
 
-        # If there's a wall, we shouldn't be able to move
-        # If there's no wall, we should be able to move
-        assert can_move == (not has_wall), f"Movement should match wall state for {direction}"
+    # Test that we can move to path cells
+    start_x, start_y = maze.start_pos
+    path_move_tested = False
+    for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
+        to_x, to_y = start_x + dx, start_y + dy
+        if maze._is_valid_grid_cell(to_x, to_y) and maze.grid[to_y][to_x] == PATH:
+            can_move = maze.can_move_to(start_x, start_y, to_x, to_y)
+            assert can_move, f"Should be able to move to path at ({to_x}, {to_y})"
+            path_move_tested = True
+            break
 
-    print(f"  ✓ Wall detection working correctly")
+    assert path_move_tested, "Should have found at least one adjacent path to test"
+    print(f"  ✓ Path detection working correctly - can move to paths")
 
 
 def test_collision_manager():

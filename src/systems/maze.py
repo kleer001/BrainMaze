@@ -1,36 +1,21 @@
 """
 Maze generation system using recursive backtracker algorithm.
 Phase A2: Procedural maze generation with guaranteed solvable paths.
+Each wall occupies a full grid square.
 """
 
 import random
 import pygame
 
-
-class Cell:
-    """Represents a single cell in the maze grid."""
-
-    def __init__(self, x, y):
-        """
-        Initialize a cell.
-
-        Args:
-            x: Grid X coordinate
-            y: Grid Y coordinate
-        """
-        self.x = x
-        self.y = y
-        self.walls = {'top': True, 'right': True, 'bottom': True, 'left': True}
-        self.visited = False
-
-    def __repr__(self):
-        return f"Cell({self.x}, {self.y})"
+# Cell types
+WALL = 1
+PATH = 0
 
 
 class Maze:
     """
     Maze generator using recursive backtracker algorithm.
-    Creates a perfect maze (single path between any two points).
+    Creates a perfect maze where each wall occupies a full grid square.
     """
 
     def __init__(self, grid_size, tile_size):
@@ -38,112 +23,104 @@ class Maze:
         Initialize maze generator.
 
         Args:
-            grid_size: Size of the grid (e.g., 20 for 20x20)
+            grid_size: Total grid size from config (e.g., 20 for 20x20 grid)
+                      This will be used to calculate path cells that fit with walls
             tile_size: Size of each tile in pixels
         """
-        self.grid_size = grid_size
+        # Calculate how many path cells we can fit in the grid
+        # Formula: path_size = (grid_size - 1) // 2
+        # This ensures: actual_grid_size = 2 * path_size + 1 <= grid_size
+        self.path_size = (grid_size - 1) // 2
+        self.grid_size = 2 * self.path_size + 1  # Actual grid size with walls
         self.tile_size = tile_size
         self.grid = []
         self.start_pos = None
         self.end_pos = None
+        self.visited = []  # For generation algorithm
 
         # Generate the maze
         self._generate()
 
     def _generate(self):
         """Generate maze using recursive backtracker algorithm."""
-        # Create grid of cells
-        self.grid = []
-        for y in range(self.grid_size):
-            row = []
-            for x in range(self.grid_size):
-                row.append(Cell(x, y))
-            self.grid.append(row)
+        # Initialize grid - all walls
+        self.grid = [[WALL for _ in range(self.grid_size)] for _ in range(self.grid_size)]
 
-        # Start from random cell
-        start_x = random.randint(0, self.grid_size - 1)
-        start_y = random.randint(0, self.grid_size - 1)
+        # Initialize visited tracking for path cells only
+        self.visited = [[False for _ in range(self.path_size)] for _ in range(self.path_size)]
 
-        # Run recursive backtracker
-        self._carve_passages(start_x, start_y)
+        # Mark all path cells (at even coordinates) as PATH
+        for py in range(self.path_size):
+            for px in range(self.path_size):
+                x = px * 2 + 1  # Convert to actual grid coordinates
+                y = py * 2 + 1
+                self.grid[y][x] = PATH
+
+        # Start from random path cell
+        start_px = random.randint(0, self.path_size - 1)
+        start_py = random.randint(0, self.path_size - 1)
+
+        # Run recursive backtracker to carve passages
+        self._carve_passages(start_px, start_py)
 
         # Find start and end positions (furthest apart corners)
         self._find_start_end_positions()
 
-    def _carve_passages(self, x, y):
+    def _carve_passages(self, px, py):
         """
         Recursive backtracker algorithm to carve passages.
 
         Args:
-            x: Current X coordinate
-            y: Current Y coordinate
+            px: Current path cell X coordinate
+            py: Current path cell Y coordinate
         """
-        current = self.grid[y][x]
-        current.visited = True
+        self.visited[py][px] = True
 
         # Get neighbors in random order
-        directions = ['top', 'right', 'bottom', 'left']
+        directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]  # up, right, down, left
         random.shuffle(directions)
 
-        for direction in directions:
-            nx, ny = self._get_neighbor_coords(x, y, direction)
+        for dx, dy in directions:
+            # Calculate neighbor path cell position
+            npx = px + dx
+            npy = py + dy
 
             # Check if neighbor is valid and unvisited
-            if self._is_valid_cell(nx, ny) and not self.grid[ny][nx].visited:
-                # Remove walls between current and neighbor
-                neighbor = self.grid[ny][nx]
-                current.walls[direction] = False
-                neighbor.walls[self._opposite_direction(direction)] = False
+            if self._is_valid_path_cell(npx, npy) and not self.visited[npy][npx]:
+                # Convert to actual grid coordinates
+                x = px * 2 + 1
+                y = py * 2 + 1
+                nx = npx * 2 + 1
+                ny = npy * 2 + 1
+
+                # Carve passage (remove wall between cells)
+                wall_x = (x + nx) // 2
+                wall_y = (y + ny) // 2
+                self.grid[wall_y][wall_x] = PATH
 
                 # Recursively visit neighbor
-                self._carve_passages(nx, ny)
+                self._carve_passages(npx, npy)
 
-    def _get_neighbor_coords(self, x, y, direction):
+    def _is_valid_path_cell(self, px, py):
         """
-        Get coordinates of neighbor in given direction.
+        Check if path cell coordinates are within bounds.
 
         Args:
-            x: Current X coordinate
-            y: Current Y coordinate
-            direction: 'top', 'right', 'bottom', or 'left'
+            px: Path cell X coordinate
+            py: Path cell Y coordinate
 
         Returns:
-            tuple: (neighbor_x, neighbor_y)
+            bool: True if valid
         """
-        if direction == 'top':
-            return (x, y - 1)
-        elif direction == 'right':
-            return (x + 1, y)
-        elif direction == 'bottom':
-            return (x, y + 1)
-        elif direction == 'left':
-            return (x - 1, y)
+        return 0 <= px < self.path_size and 0 <= py < self.path_size
 
-    def _opposite_direction(self, direction):
+    def _is_valid_grid_cell(self, x, y):
         """
-        Get opposite direction.
+        Check if grid coordinates are within bounds.
 
         Args:
-            direction: 'top', 'right', 'bottom', or 'left'
-
-        Returns:
-            str: Opposite direction
-        """
-        opposites = {
-            'top': 'bottom',
-            'bottom': 'top',
-            'left': 'right',
-            'right': 'left'
-        }
-        return opposites[direction]
-
-    def _is_valid_cell(self, x, y):
-        """
-        Check if coordinates are within grid bounds.
-
-        Args:
-            x: X coordinate
-            y: Y coordinate
+            x: Grid X coordinate
+            y: Grid Y coordinate
 
         Returns:
             bool: True if valid
@@ -153,20 +130,26 @@ class Maze:
     def _find_start_end_positions(self):
         """
         Find start and end positions that are far apart.
-        Uses corners to maximize distance.
+        Uses corners of path cells to maximize distance.
+        Returns positions in actual grid coordinates (odd indices).
         """
-        # Define corners
-        corners = [
-            (0, 0),  # Top-left
-            (self.grid_size - 1, 0),  # Top-right
-            (0, self.grid_size - 1),  # Bottom-left
-            (self.grid_size - 1, self.grid_size - 1)  # Bottom-right
+        # Define path cell corners (convert to actual grid coordinates)
+        path_corners = [
+            (0, 0),  # Top-left path cell
+            (self.path_size - 1, 0),  # Top-right path cell
+            (0, self.path_size - 1),  # Bottom-left path cell
+            (self.path_size - 1, self.path_size - 1)  # Bottom-right path cell
         ]
 
         # Pick two random corners
-        random.shuffle(corners)
-        self.start_pos = corners[0]
-        self.end_pos = corners[1]
+        random.shuffle(path_corners)
+
+        # Convert to actual grid coordinates
+        start_px, start_py = path_corners[0]
+        end_px, end_py = path_corners[1]
+
+        self.start_pos = (start_px * 2 + 1, start_py * 2 + 1)
+        self.end_pos = (end_px * 2 + 1, end_py * 2 + 1)
 
     def get_start_position(self):
         """
@@ -186,61 +169,46 @@ class Maze:
         """
         return self.end_pos
 
-    def is_wall(self, x, y, direction):
+    def is_wall(self, x, y):
         """
-        Check if there's a wall in a direction from a cell.
+        Check if a grid cell is a wall.
 
         Args:
-            x: Cell X coordinate
-            y: Cell Y coordinate
-            direction: 'top', 'right', 'bottom', or 'left'
+            x: Grid X coordinate
+            y: Grid Y coordinate
 
         Returns:
-            bool: True if wall exists
+            bool: True if cell is a wall or out of bounds
         """
-        if not self._is_valid_cell(x, y):
+        if not self._is_valid_grid_cell(x, y):
             return True
-        return self.grid[y][x].walls[direction]
+        return self.grid[y][x] == WALL
 
     def can_move_to(self, from_x, from_y, to_x, to_y):
         """
-        Check if movement from one tile to another is valid (no wall between).
+        Check if movement from one tile to another is valid.
 
         Args:
-            from_x: Starting tile X
-            from_y: Starting tile Y
-            to_x: Target tile X
-            to_y: Target tile Y
+            from_x: Starting tile X (grid coordinates)
+            from_y: Starting tile Y (grid coordinates)
+            to_x: Target tile X (grid coordinates)
+            to_y: Target tile Y (grid coordinates)
 
         Returns:
-            bool: True if movement is valid
+            bool: True if movement is valid (target is not a wall)
         """
-        # Check if target is valid
-        if not self._is_valid_cell(to_x, to_y):
-            return False
-
-        # Determine direction of movement
-        if to_x == from_x and to_y == from_y - 1:  # Moving up
-            return not self.is_wall(from_x, from_y, 'top')
-        elif to_x == from_x and to_y == from_y + 1:  # Moving down
-            return not self.is_wall(from_x, from_y, 'bottom')
-        elif to_x == from_x - 1 and to_y == from_y:  # Moving left
-            return not self.is_wall(from_x, from_y, 'left')
-        elif to_x == from_x + 1 and to_y == from_y:  # Moving right
-            return not self.is_wall(from_x, from_y, 'right')
-
-        # Invalid movement (diagonal or further than one tile)
-        return False
+        # Check if target is valid and not a wall
+        return not self.is_wall(to_x, to_y)
 
     def render(self, surface, colors):
         """
         Render the maze to a surface.
+        Each grid cell is drawn as either a wall (full square) or a path.
 
         Args:
             surface: Pygame surface to draw on
             colors: Dictionary with keys 'floor', 'wall', 'start', 'end'
         """
-        # Draw floor tiles for all cells
         for y in range(self.grid_size):
             for x in range(self.grid_size):
                 rect = pygame.Rect(
@@ -250,40 +218,12 @@ class Maze:
                     self.tile_size
                 )
 
-                # Color start and end tiles differently
-                if (x, y) == self.start_pos:
+                # Determine color based on cell type and position
+                if self.grid[y][x] == WALL:
+                    pygame.draw.rect(surface, colors['wall'], rect)
+                elif (x, y) == self.start_pos:
                     pygame.draw.rect(surface, colors['start'], rect)
                 elif (x, y) == self.end_pos:
                     pygame.draw.rect(surface, colors['end'], rect)
                 else:
                     pygame.draw.rect(surface, colors['floor'], rect)
-
-        # Draw walls
-        wall_thickness = 3
-        for y in range(self.grid_size):
-            for x in range(self.grid_size):
-                cell = self.grid[y][x]
-
-                # Top wall
-                if cell.walls['top']:
-                    start_pos = (x * self.tile_size, y * self.tile_size)
-                    end_pos = ((x + 1) * self.tile_size, y * self.tile_size)
-                    pygame.draw.line(surface, colors['wall'], start_pos, end_pos, wall_thickness)
-
-                # Right wall
-                if cell.walls['right']:
-                    start_pos = ((x + 1) * self.tile_size, y * self.tile_size)
-                    end_pos = ((x + 1) * self.tile_size, (y + 1) * self.tile_size)
-                    pygame.draw.line(surface, colors['wall'], start_pos, end_pos, wall_thickness)
-
-                # Bottom wall
-                if cell.walls['bottom']:
-                    start_pos = (x * self.tile_size, (y + 1) * self.tile_size)
-                    end_pos = ((x + 1) * self.tile_size, (y + 1) * self.tile_size)
-                    pygame.draw.line(surface, colors['wall'], start_pos, end_pos, wall_thickness)
-
-                # Left wall
-                if cell.walls['left']:
-                    start_pos = (x * self.tile_size, y * self.tile_size)
-                    end_pos = (x * self.tile_size, (y + 1) * self.tile_size)
-                    pygame.draw.line(surface, colors['wall'], start_pos, end_pos, wall_thickness)
