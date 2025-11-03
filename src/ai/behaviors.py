@@ -115,7 +115,8 @@ class PatrolBehavior(Behavior):
         self.current_waypoint_index = 0
 
         # Threshold for "reached waypoint" (in tiles)
-        self.waypoint_threshold = 1
+        # Set to 0 to require exact position match and prevent oscillation
+        self.waypoint_threshold = 0
 
     def _calculate_quadrant_waypoints(self):
         """
