@@ -137,26 +137,45 @@
 
 ---
 
-#### **A4: Player-Enemy Collision & Fact Display**
-**Goal:** Collision triggers fact display and respawn
+#### **A4: Player-Enemy Collision & Respawn System**
+**Goal:** Collision triggers respawn with invincibility
 
 **Tasks:**
-1. Implement collision detection between player and enemies
-2. Create text-based fact list (hardcoded for now)
-3. Display random fact in bottom panel on collision
-4. Respawn player at start with screen flash
-5. Reset mines to 3
+1. Implement collision detection between player and enemies (every 4 frames for economy)
+2. Create screen flash effect (20% red overlay, 0.4s duration, configurable)
+3. Respawn player at start position
+4. Implement 5-second invincibility with pulsing color effect
+5. Add basic mine counter to GameState (prep for B1)
+6. Reset mine counter to 3 on respawn
 
 **Files:**
-- `ui/trivia_panel.py`
 - `systems/effects.py` (screen flash)
-- Update `systems/collision.py`
+- `systems/game_state.py` (mine counter)
+- Update `entities/player.py` (invincibility, pulsing effect)
+- Update `main.py` (collision checking)
+
+**Configuration:**
+- `config/gameplay.ini`:
+  ```ini
+  [Effects]
+  screen_flash_duration = 0.4
+  screen_flash_red_intensity = 0.2
+  invincibility_duration = 5.0
+  collision_check_interval = 4  # Check every N frames
+
+  [Mines]
+  max_inventory = 3
+  ```
 
 **Testing:**
-- Collision detection is accurate
-- Fact appears immediately after collision
-- Player respawns with 5-second invincibility (visual glow)
-- Invincibility prevents further collisions
+- Collision detection is accurate (checked every 4 frames)
+- Screen flash displays correctly on collision
+- Player respawns at start position
+- 5-second invincibility with pulsing color visual
+- Invincibility prevents further collision damage
+- Mine counter resets to 3 on respawn
+
+**Note:** Fact display is deferred to Phase B2 (mine-enemy collision triggers facts)
 
 
 ---
@@ -204,7 +223,7 @@
 
 **Tasks:**
 1. Create `Mine` class
-2. Track mine inventory in `GameState`
+2. Extend `GameState` with mine placement logic (mine counter created in A4)
 3. Handle M key input
 4. Place mine at player's current position
 5. Add glow pulse effect on placement
@@ -212,8 +231,10 @@
 
 **Files:**
 - `entities/mine.py`
-- `systems/game_state.py`
+- Update `systems/game_state.py` (extend with placement logic)
 - Update `ui/hud.py` to show mine count
+
+**Note:** Mine counter (inventory) was created in Phase A4, this phase adds actual mine entities
 
 **Configuration:**
 - `config/gameplay.ini`:
@@ -232,26 +253,30 @@
 
 ---
 
-#### **B2: Mine-Enemy Collision**
+#### **B2: Mine-Enemy Collision & Fact Display**
 **Goal:** Mines eliminate enemies and display facts
 
 **Tasks:**
-1. Implement mine-enemy collision detection
-2. Remove both mine and enemy on collision
-3. Return mine to inventory
-4. Load facts from JSON file (`cats.json`)
-5. Display fact in trivia panel
-6. Spawn new enemy if count < 5
+1. Create trivia panel UI (bottom of screen, grid square height, full maze width)
+2. Implement mine-enemy collision detection
+3. Remove both mine and enemy on collision
+4. Return mine to inventory
+5. Load facts from JSON file (`cats.json`)
+6. Display fact in trivia panel (black background, white text, persistent)
+7. Spawn new enemy if count < 5
 
 **Files:**
-- Update `systems/collision.py`
-- Update `ui/trivia_panel.py` to load JSON
-- Create `assets/data/cats.json`
+- Create `ui/trivia_panel.py` (fact display panel)
+- Update `systems/collision.py` (mine-enemy collision)
+- Create `assets/data/cats.json` (cat facts)
+- Update `main.py` (integrate trivia panel)
 
 **Testing:**
-- Collision triggers correctly
+- Trivia panel displays at bottom correctly
+- Mine-enemy collision triggers correctly
 - Mine returns to inventory
-- Fact displays from JSON
+- Fact displays from JSON in panel
+- Panel persists with current fact
 - New enemy spawns at correct distance
 - Level completes when all enemies eliminated
 
