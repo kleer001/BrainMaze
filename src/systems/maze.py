@@ -1,6 +1,7 @@
 """
 Maze generation system using random wall scattering (Pac-Man style).
 Phase A4: Pac-Man style open field with scattered short wall segments.
+Features vertical axis symmetry for aesthetic appeal.
 Each wall occupies a full grid square.
 """
 
@@ -17,6 +18,7 @@ class Maze:
     """
     Maze generator using random wall scattering (Pac-Man style).
     Creates an open field with short scattered wall segments.
+    Features vertical axis symmetry for beautiful, balanced layouts.
     """
 
     def __init__(self, grid_size, tile_size, wall_density=0.2, max_wall_length=4, max_attempts=100):
@@ -43,25 +45,27 @@ class Maze:
         self._generate()
 
     def _generate(self):
-        """Generate maze using random wall scattering (Pac-Man style)."""
+        """Generate maze using random wall scattering (Pac-Man style) with vertical symmetry."""
         for attempt in range(self.max_attempts):
             # Initialize grid - all paths
             self.grid = [[PATH for _ in range(self.grid_size)] for _ in range(self.grid_size)]
 
-            # Calculate target number of wall tiles
+            # Calculate target number of wall tiles (for one half, will be mirrored)
             total_tiles = self.grid_size * self.grid_size
-            target_walls = int(total_tiles * self.wall_density)
+            target_walls_total = int(total_tiles * self.wall_density)
+            target_walls_half = target_walls_total // 2  # Only generate half, will mirror
 
-            # Place random wall segments
+            # Place random wall segments on LEFT HALF only
             walls_placed = 0
-            max_segment_attempts = target_walls * 3  # Prevent infinite loop
+            max_segment_attempts = target_walls_half * 3  # Prevent infinite loop
             segment_attempts = 0
+            half_width = self.grid_size // 2
 
-            while walls_placed < target_walls and segment_attempts < max_segment_attempts:
+            while walls_placed < target_walls_half and segment_attempts < max_segment_attempts:
                 segment_attempts += 1
 
-                # Random starting position
-                x = random.randint(0, self.grid_size - 1)
+                # Random starting position (LEFT HALF only)
+                x = random.randint(0, half_width - 1)
                 y = random.randint(0, self.grid_size - 1)
 
                 # Random orientation (horizontal or vertical)
@@ -70,9 +74,10 @@ class Maze:
                 # Random segment length (1 to max_wall_length)
                 length = random.randint(1, self.max_wall_length)
 
-                # Try to place wall segment
-                if self._place_wall_segment(x, y, length, horizontal):
-                    walls_placed += length
+                # Try to place wall segment (only in left half)
+                placed = self._place_wall_segment_with_mirror(x, y, length, horizontal)
+                if placed > 0:
+                    walls_placed += placed
 
             # Set start and end positions
             self._find_start_end_positions()
@@ -87,35 +92,51 @@ class Maze:
         self.grid = [[PATH for _ in range(self.grid_size)] for _ in range(self.grid_size)]
         self._find_start_end_positions()
 
-    def _place_wall_segment(self, x, y, length, horizontal):
+    def _place_wall_segment_with_mirror(self, x, y, length, horizontal):
         """
-        Try to place a wall segment at the given position.
+        Try to place a wall segment at the given position and mirror it to the right side.
 
         Args:
-            x: Starting X coordinate
+            x: Starting X coordinate (left half only)
             y: Starting Y coordinate
             length: Length of wall segment
             horizontal: True for horizontal wall, False for vertical
 
         Returns:
-            bool: True if segment was successfully placed
+            int: Number of wall tiles placed (0 if failed)
         """
-        # Check if segment fits in grid
+        half_width = self.grid_size // 2
+
+        # Check if segment fits in left half
         if horizontal:
-            if x + length > self.grid_size:
-                return False
+            if x + length > half_width:
+                return 0
         else:
             if y + length > self.grid_size:
-                return False
+                return 0
 
-        # Place the wall segment
+        # Place the wall segment on LEFT side
+        tiles_placed = 0
         for i in range(length):
             if horizontal:
                 self.grid[y][x + i] = WALL
+                tiles_placed += 1
             else:
                 self.grid[y + i][x] = WALL
+                tiles_placed += 1
 
-        return True
+        # Mirror to RIGHT side
+        for i in range(length):
+            if horizontal:
+                # Mirror x-coordinate for horizontal walls
+                mirror_x = self.grid_size - 1 - (x + i)
+                self.grid[y][mirror_x] = WALL
+            else:
+                # Mirror x-coordinate for vertical walls
+                mirror_x = self.grid_size - 1 - x
+                self.grid[y + i][mirror_x] = WALL
+
+        return tiles_placed
 
     def _is_connected(self, start_pos, end_pos):
         """
