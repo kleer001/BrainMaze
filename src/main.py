@@ -1,8 +1,8 @@
 """
-Brain Maze - Phase A2: Maze Generation & Wall Collision
+Brain Maze - Phase A3: Single Enemy Random Movement
 Educational fact collection game.
 
-Phase A2: Player navigates procedurally generated maze with wall collision.
+Phase A3: One enemy roams the maze randomly.
 """
 
 import pygame
@@ -12,6 +12,7 @@ from pathlib import Path
 
 # Import entities and systems
 from entities.player import Player
+from entities.enemy import Enemy
 from systems.maze import Maze
 from systems.collision import CollisionManager
 
@@ -28,10 +29,16 @@ class BrainMaze:
         # Load configuration
         self.config = configparser.ConfigParser()
         config_path = Path('config/gameplay.ini')
+        enemies_config_path = Path('config/enemies.ini')
+
         if not config_path.exists():
             print(f"Error: Config file not found at {config_path}")
             sys.exit(1)
-        self.config.read(config_path)
+        if not enemies_config_path.exists():
+            print(f"Error: Config file not found at {enemies_config_path}")
+            sys.exit(1)
+
+        self.config.read([config_path, enemies_config_path])
         
         # Display setup
         self.window_width = self.config.getint('Display', 'window_width')
@@ -63,11 +70,18 @@ class BrainMaze:
 
         # Sprite groups
         self.all_sprites = pygame.sprite.Group()
+        self.enemies = pygame.sprite.Group()
 
         # Create player at maze start position
         start_x, start_y = self.maze.get_start_position()
         self.player = Player(start_x, start_y, self.config, self.collision_manager)
         self.all_sprites.add(self.player)
+
+        # Create enemy at maze end position (Phase A3)
+        end_x, end_y = self.maze.get_end_position()
+        enemy = Enemy(end_x, end_y, self.config, self.collision_manager)
+        self.enemies.add(enemy)
+        self.all_sprites.add(enemy)
         
     def handle_events(self):
         """Process input events."""
@@ -85,11 +99,17 @@ class BrainMaze:
     def update(self, dt):
         """
         Update game state.
-        
+
         Args:
             dt: Delta time in seconds
         """
-        self.all_sprites.update(dt)
+        # Update player
+        self.player.update(dt)
+
+        # Update enemies (need player position for AI)
+        player_tile_pos = self.player.get_tile_position()
+        for enemy in self.enemies:
+            enemy.update(dt, player_tile_pos)
     
     def render(self):
         """Draw everything to screen."""
