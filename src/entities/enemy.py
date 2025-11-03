@@ -1,11 +1,12 @@
 """
 Enemy entity with AI-driven movement.
 Phase A3: Single enemy with random wandering behavior.
+Phase A5: Multiple behaviors - randomly assigned on spawn.
 """
 
 import pygame
 import random
-from ai.behaviors import WandererBehavior
+from ai.behaviors import WandererBehavior, PatrolBehavior
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -82,8 +83,32 @@ class Enemy(pygame.sprite.Sprite):
             y * self.tile_size + self.tile_size // 2
         )
 
-        # Initialize behavior (Wanderer for Phase A3)
-        self.behavior = WandererBehavior(self)
+        # Initialize behavior (random selection for Phase A5)
+        self.behavior = self._assign_random_behavior()
+
+    def _assign_random_behavior(self):
+        """
+        Randomly assign a behavior to this enemy based on config.
+
+        Returns:
+            Behavior instance
+        """
+        # Get available behavior types from config
+        behavior_types_str = self.config.get('Behaviors', 'behavior_types')
+        behavior_types = [b.strip() for b in behavior_types_str.split(',')]
+
+        # Randomly select a behavior type
+        behavior_type = random.choice(behavior_types)
+
+        # Create and return the appropriate behavior instance
+        if behavior_type == 'wanderer':
+            return WandererBehavior(self)
+        elif behavior_type == 'patrol':
+            return PatrolBehavior(self)
+        else:
+            # Default to wanderer if unknown type
+            print(f"Warning: Unknown behavior type '{behavior_type}', defaulting to wanderer")
+            return WandererBehavior(self)
 
     def can_move_in_direction(self, direction):
         """
