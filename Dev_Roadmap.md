@@ -65,7 +65,6 @@
 - Movement is smooth and responsive
 - Diagonal movement works correctly
 
-**Estimated Time:** 2-3 hours
 
 ---
 
@@ -98,7 +97,6 @@
 - Player cannot pass through walls
 - Start and end points are valid and distant
 
-**Estimated Time:** 4-6 hours
 
 ---
 
@@ -136,7 +134,6 @@
 - Enemy moves randomly without getting stuck
 - Enemy respects wall collisions
 
-**Estimated Time:** 3-4 hours
 
 ---
 
@@ -161,7 +158,6 @@
 - Player respawns with 5-second invincibility (visual glow)
 - Invincibility prevents further collisions
 
-**Estimated Time:** 3-4 hours
 
 ---
 
@@ -198,7 +194,6 @@
 - Patrol enemies follow consistent paths
 - Combo enemies switch behaviors correctly
 
-**Estimated Time:** 6-8 hours
 
 ---
 
@@ -234,7 +229,6 @@
 - Cannot place more than 3 mines
 - Glow effect displays on placement
 
-**Estimated Time:** 2-3 hours
 
 ---
 
@@ -261,7 +255,6 @@
 - New enemy spawns at correct distance
 - Level completes when all enemies eliminated
 
-**Estimated Time:** 3-4 hours
 
 ---
 
@@ -296,7 +289,6 @@
 - Despawn correctly
 - Multiple powerups don't overlap
 
-**Estimated Time:** 4-5 hours
 
 ---
 
@@ -343,7 +335,6 @@
 - Cursed powerups apply correctly
 - Timer-based effects expire
 
-**Estimated Time:** 5-6 hours
 
 ---
 
@@ -364,7 +355,6 @@
 **Files:**
 - Update `systems/effects.py`
 
-**Estimated Time:** 4-5 hours
 
 ---
 
@@ -384,7 +374,6 @@
 - Update `ui/pause_menu.py`
 - Create all theme JSON files
 
-**Estimated Time:** 5-6 hours
 
 ---
 
@@ -402,7 +391,6 @@
 4. Performance optimization
 5. Comprehensive testing
 
-**Estimated Time:** 6-8 hours
 
 ---
 
@@ -421,18 +409,6 @@
 **Playtesting:**
 - Kids (target audience) test for difficulty balance
 - Adults test for bug discovery
-
----
-
-## Estimated Timeline
-
-| Phase | Hours | Days (4h/day) |
-|-------|-------|---------------|
-| A1-A5 | 18-25 | 5-7 |
-| B1-B2 | 5-7 | 2-3 |
-| C1-C2 | 9-11 | 3-4 |
-| D1-D3 | 15-19 | 4-5 |
-| **Total** | **47-62** | **14-19** |
 
 ---
 
