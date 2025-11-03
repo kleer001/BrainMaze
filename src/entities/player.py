@@ -1,9 +1,10 @@
 """
 Player entity with buffered input and corner forgiveness.
-Phase A2: Movement with wall collision detection.
+Phase A4: Movement with wall collision detection and invincibility system.
 """
 
 import pygame
+import math
 
 
 class Vector2:
@@ -48,14 +49,20 @@ class Player(pygame.sprite.Sprite):
         self.base_speed = config.getfloat('Player', 'base_speed')
         self.input_buffer_duration = config.getfloat('Player', 'input_buffer_duration')
         self.corner_forgiveness = config.getint('Player', 'corner_forgiveness')
-        
+        self.invincibility_duration = config.getfloat('Player', 'invincibility_duration')
+        self.pulse_frequency = config.getfloat('Effects', 'invincibility_pulse_frequency')
+
         # Convert speed from tiles/second to pixels/second
         self.speed_pixels_per_second = self.base_speed * self.tile_size
-        
+
         # Create sprite (colored rectangle for now)
         self.image = pygame.Surface((self.tile_size - 4, self.tile_size - 4))
-        color = tuple(map(int, config.get('Colors', 'player').split(',')))
-        self.image.fill(color)
+        self.base_color = tuple(map(int, config.get('Colors', 'player').split(',')))
+        self.image.fill(self.base_color)
+
+        # Store spawn position for respawn
+        self.spawn_x = x
+        self.spawn_y = y
         
         # Position (center of tile in pixel coordinates)
         self.rect = self.image.get_rect()
@@ -76,6 +83,11 @@ class Player(pygame.sprite.Sprite):
         # Input buffering
         self.buffered_direction = None
         self.buffer_timer = 0.0
+
+        # Invincibility state
+        self.is_invincible = False
+        self.invincibility_timer = 0.0
+        self.pulse_timer = 0.0
         
     def handle_input(self, keys):
         """
@@ -120,10 +132,32 @@ class Player(pygame.sprite.Sprite):
         """
         Update player position with grid-snapped movement.
         Player commits to full tile movements.
-        
+
         Args:
             dt: Delta time in seconds
         """
+        # Update invincibility timer
+        if self.is_invincible:
+            self.invincibility_timer -= dt
+            self.pulse_timer += dt
+
+            if self.invincibility_timer <= 0:
+                self.is_invincible = False
+                self.invincibility_timer = 0.0
+                # Reset to base color
+                self.image.fill(self.base_color)
+            else:
+                # Apply pulsing color effect using sine wave
+                pulse_value = math.sin(self.pulse_timer * 2 * math.pi / self.pulse_frequency)
+                # Map sine wave (-1 to 1) to brightness multiplier (0.6 to 1.4)
+                brightness = 1.0 + (pulse_value * 0.4)
+
+                # Apply brightness to base color
+                pulsed_color = tuple(
+                    min(255, int(c * brightness)) for c in self.base_color
+                )
+                self.image.fill(pulsed_color)
+
         # If we're moving toward a target
         if self.is_moving and self.target_pos:
             # Move toward target
@@ -275,10 +309,46 @@ class Player(pygame.sprite.Sprite):
     def get_tile_position(self):
         """
         Get current position in tile coordinates.
-        
+
         Returns:
             tuple: (tile_x, tile_y)
         """
         tile_x = int(self.pos.x // self.tile_size)
         tile_y = int(self.pos.y // self.tile_size)
         return (tile_x, tile_y)
+
+    def respawn(self):
+        """
+        Respawn player at spawn position with invincibility.
+        Called when player collides with enemy.
+        """
+        # Reset position to spawn
+        spawn_pixel_x = self.spawn_x * self.tile_size + self.tile_size // 2
+        spawn_pixel_y = self.spawn_y * self.tile_size + self.tile_size // 2
+        self.pos.x = spawn_pixel_x
+        self.pos.y = spawn_pixel_y
+        self.rect.center = (int(self.pos.x), int(self.pos.y))
+
+        # Stop movement
+        self.velocity = Vector2(0, 0)
+        self.is_moving = False
+        self.target_pos = None
+        self.current_direction = None
+
+        # Clear buffered input
+        self.buffered_direction = None
+        self.buffer_timer = 0.0
+
+        # Activate invincibility
+        self.is_invincible = True
+        self.invincibility_timer = self.invincibility_duration
+        self.pulse_timer = 0.0
+
+    def can_take_damage(self):
+        """
+        Check if player can take damage (not invincible).
+
+        Returns:
+            bool: True if player can take damage
+        """
+        return not self.is_invincible
