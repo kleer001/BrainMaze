@@ -1,11 +1,12 @@
 """
-Maze generation system using recursive backtracker algorithm.
-Phase A2: Procedural maze generation with guaranteed solvable paths.
+Maze generation system using random wall scattering (Pac-Man style).
+Phase A4: Pac-Man style open field with scattered short wall segments.
 Each wall occupies a full grid square.
 """
 
 import random
 import pygame
+from collections import deque
 
 # Cell types
 WALL = 1
@@ -14,105 +15,145 @@ PATH = 0
 
 class Maze:
     """
-    Maze generator using recursive backtracker algorithm.
-    Creates a perfect maze where each wall occupies a full grid square.
+    Maze generator using random wall scattering (Pac-Man style).
+    Creates an open field with short scattered wall segments.
     """
 
-    def __init__(self, grid_size, tile_size):
+    def __init__(self, grid_size, tile_size, wall_density=0.2, max_wall_length=4, max_attempts=100):
         """
         Initialize maze generator.
 
         Args:
-            grid_size: Total grid size from config (e.g., 20 for 20x20 grid)
-                      This will be used to calculate path cells that fit with walls
+            grid_size: Total grid size (e.g., 20 for 20x20 grid)
             tile_size: Size of each tile in pixels
+            wall_density: Target percentage of grid to be walls (0.0 to 1.0)
+            max_wall_length: Maximum length of wall segments in tiles
+            max_attempts: Maximum generation attempts before giving up
         """
-        # Calculate how many path cells we can fit in the grid
-        # Formula: path_size = (grid_size - 1) // 2
-        # This ensures: actual_grid_size = 2 * path_size + 1 <= grid_size
-        self.path_size = (grid_size - 1) // 2
-        self.grid_size = 2 * self.path_size + 1  # Actual grid size with walls
+        self.grid_size = grid_size
         self.tile_size = tile_size
+        self.wall_density = wall_density
+        self.max_wall_length = max_wall_length
+        self.max_attempts = max_attempts
         self.grid = []
         self.start_pos = None
         self.end_pos = None
-        self.visited = []  # For generation algorithm
 
         # Generate the maze
         self._generate()
 
     def _generate(self):
-        """Generate maze using recursive backtracker algorithm."""
-        # Initialize grid - all walls
-        self.grid = [[WALL for _ in range(self.grid_size)] for _ in range(self.grid_size)]
+        """Generate maze using random wall scattering (Pac-Man style)."""
+        for attempt in range(self.max_attempts):
+            # Initialize grid - all paths
+            self.grid = [[PATH for _ in range(self.grid_size)] for _ in range(self.grid_size)]
 
-        # Initialize visited tracking for path cells only
-        self.visited = [[False for _ in range(self.path_size)] for _ in range(self.path_size)]
+            # Calculate target number of wall tiles
+            total_tiles = self.grid_size * self.grid_size
+            target_walls = int(total_tiles * self.wall_density)
 
-        # Mark all path cells (at even coordinates) as PATH
-        for py in range(self.path_size):
-            for px in range(self.path_size):
-                x = px * 2 + 1  # Convert to actual grid coordinates
-                y = py * 2 + 1
-                self.grid[y][x] = PATH
+            # Place random wall segments
+            walls_placed = 0
+            max_segment_attempts = target_walls * 3  # Prevent infinite loop
+            segment_attempts = 0
 
-        # Start from random path cell
-        start_px = random.randint(0, self.path_size - 1)
-        start_py = random.randint(0, self.path_size - 1)
+            while walls_placed < target_walls and segment_attempts < max_segment_attempts:
+                segment_attempts += 1
 
-        # Run recursive backtracker to carve passages
-        self._carve_passages(start_px, start_py)
+                # Random starting position
+                x = random.randint(0, self.grid_size - 1)
+                y = random.randint(0, self.grid_size - 1)
 
-        # Find start and end positions (furthest apart corners)
+                # Random orientation (horizontal or vertical)
+                horizontal = random.choice([True, False])
+
+                # Random segment length (1 to max_wall_length)
+                length = random.randint(1, self.max_wall_length)
+
+                # Try to place wall segment
+                if self._place_wall_segment(x, y, length, horizontal):
+                    walls_placed += length
+
+            # Set start and end positions
+            self._find_start_end_positions()
+
+            # Check if path exists from start to end
+            if self._is_connected(self.start_pos, self.end_pos):
+                # Success!
+                return
+
+        # If we failed all attempts, create empty maze (all paths)
+        print(f"Warning: Failed to generate connected maze after {self.max_attempts} attempts. Using open field.")
+        self.grid = [[PATH for _ in range(self.grid_size)] for _ in range(self.grid_size)]
         self._find_start_end_positions()
 
-    def _carve_passages(self, px, py):
+    def _place_wall_segment(self, x, y, length, horizontal):
         """
-        Recursive backtracker algorithm to carve passages.
+        Try to place a wall segment at the given position.
 
         Args:
-            px: Current path cell X coordinate
-            py: Current path cell Y coordinate
-        """
-        self.visited[py][px] = True
-
-        # Get neighbors in random order
-        directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]  # up, right, down, left
-        random.shuffle(directions)
-
-        for dx, dy in directions:
-            # Calculate neighbor path cell position
-            npx = px + dx
-            npy = py + dy
-
-            # Check if neighbor is valid and unvisited
-            if self._is_valid_path_cell(npx, npy) and not self.visited[npy][npx]:
-                # Convert to actual grid coordinates
-                x = px * 2 + 1
-                y = py * 2 + 1
-                nx = npx * 2 + 1
-                ny = npy * 2 + 1
-
-                # Carve passage (remove wall between cells)
-                wall_x = (x + nx) // 2
-                wall_y = (y + ny) // 2
-                self.grid[wall_y][wall_x] = PATH
-
-                # Recursively visit neighbor
-                self._carve_passages(npx, npy)
-
-    def _is_valid_path_cell(self, px, py):
-        """
-        Check if path cell coordinates are within bounds.
-
-        Args:
-            px: Path cell X coordinate
-            py: Path cell Y coordinate
+            x: Starting X coordinate
+            y: Starting Y coordinate
+            length: Length of wall segment
+            horizontal: True for horizontal wall, False for vertical
 
         Returns:
-            bool: True if valid
+            bool: True if segment was successfully placed
         """
-        return 0 <= px < self.path_size and 0 <= py < self.path_size
+        # Check if segment fits in grid
+        if horizontal:
+            if x + length > self.grid_size:
+                return False
+        else:
+            if y + length > self.grid_size:
+                return False
+
+        # Place the wall segment
+        for i in range(length):
+            if horizontal:
+                self.grid[y][x + i] = WALL
+            else:
+                self.grid[y + i][x] = WALL
+
+        return True
+
+    def _is_connected(self, start_pos, end_pos):
+        """
+        Check if there's a path from start to end using BFS.
+
+        Args:
+            start_pos: (x, y) tuple of start position
+            end_pos: (x, y) tuple of end position
+
+        Returns:
+            bool: True if path exists
+        """
+        if start_pos == end_pos:
+            return True
+
+        # BFS from start to end
+        queue = deque([start_pos])
+        visited = set([start_pos])
+
+        while queue:
+            x, y = queue.popleft()
+
+            # Check all 4 neighbors
+            for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
+                nx, ny = x + dx, y + dy
+
+                # Check if we reached the end
+                if (nx, ny) == end_pos:
+                    return True
+
+                # Check if valid and unvisited path
+                if (self._is_valid_grid_cell(nx, ny) and
+                    not self.is_wall(nx, ny) and
+                    (nx, ny) not in visited):
+                    visited.add((nx, ny))
+                    queue.append((nx, ny))
+
+        return False
 
     def _is_valid_grid_cell(self, x, y):
         """
@@ -129,27 +170,43 @@ class Maze:
 
     def _find_start_end_positions(self):
         """
-        Find start and end positions that are far apart.
-        Uses corners of path cells to maximize distance.
-        Returns positions in actual grid coordinates (odd indices).
+        Find start and end positions in opposite corners.
+        Uses grid corners and ensures they're on path tiles.
         """
-        # Define path cell corners (convert to actual grid coordinates)
-        path_corners = [
-            (0, 0),  # Top-left path cell
-            (self.path_size - 1, 0),  # Top-right path cell
-            (0, self.path_size - 1),  # Bottom-left path cell
-            (self.path_size - 1, self.path_size - 1)  # Bottom-right path cell
+        # Define corner pairs (opposite corners)
+        corner_pairs = [
+            ((1, 1), (self.grid_size - 2, self.grid_size - 2)),  # Top-left & Bottom-right
+            ((self.grid_size - 2, 1), (1, self.grid_size - 2))   # Top-right & Bottom-left
         ]
 
-        # Pick two random corners
-        random.shuffle(path_corners)
+        # Pick a random corner pair
+        start_corner, end_corner = random.choice(corner_pairs)
 
-        # Convert to actual grid coordinates
-        start_px, start_py = path_corners[0]
-        end_px, end_py = path_corners[1]
+        # Find available path tile near start corner
+        start_pos = None
+        for dy in range(-1, 2):
+            for dx in range(-1, 2):
+                x, y = start_corner[0] + dx, start_corner[1] + dy
+                if self._is_valid_grid_cell(x, y) and not self.is_wall(x, y):
+                    start_pos = (x, y)
+                    break
+            if start_pos:
+                break
 
-        self.start_pos = (start_px * 2 + 1, start_py * 2 + 1)
-        self.end_pos = (end_px * 2 + 1, end_py * 2 + 1)
+        # Find available path tile near end corner
+        end_pos = None
+        for dy in range(-1, 2):
+            for dx in range(-1, 2):
+                x, y = end_corner[0] + dx, end_corner[1] + dy
+                if self._is_valid_grid_cell(x, y) and not self.is_wall(x, y):
+                    end_pos = (x, y)
+                    break
+            if end_pos:
+                break
+
+        # Set positions (with fallback)
+        self.start_pos = start_pos if start_pos else (1, 1)
+        self.end_pos = end_pos if end_pos else (self.grid_size - 2, self.grid_size - 2)
 
     def get_start_position(self):
         """
