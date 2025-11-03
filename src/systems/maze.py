@@ -82,8 +82,8 @@ class Maze:
             # Set start and end positions
             self._find_start_end_positions()
 
-            # Check if path exists from start to end
-            if self._is_connected(self.start_pos, self.end_pos):
+            # Check if path exists from start to end AND all areas are reachable (no pockets)
+            if self._is_connected(self.start_pos, self.end_pos) and self._is_fully_traversable():
                 # Success!
                 return
 
@@ -175,6 +175,42 @@ class Maze:
                     queue.append((nx, ny))
 
         return False
+
+    def _is_fully_traversable(self):
+        """
+        Check if all path cells are reachable from start (no isolated pockets).
+
+        Returns:
+            bool: True if entire maze is traversable with no pockets
+        """
+        if not self.start_pos:
+            return False
+
+        # Count total path cells
+        total_paths = 0
+        for y in range(self.grid_size):
+            for x in range(self.grid_size):
+                if not self.is_wall(x, y):
+                    total_paths += 1
+
+        # BFS from start to count reachable cells
+        queue = deque([self.start_pos])
+        visited = set([self.start_pos])
+
+        while queue:
+            x, y = queue.popleft()
+
+            for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
+                nx, ny = x + dx, y + dy
+
+                if (self._is_valid_grid_cell(nx, ny) and
+                    not self.is_wall(nx, ny) and
+                    (nx, ny) not in visited):
+                    visited.add((nx, ny))
+                    queue.append((nx, ny))
+
+        # All path cells must be reachable
+        return len(visited) == total_paths
 
     def _is_valid_grid_cell(self, x, y):
         """
