@@ -124,7 +124,7 @@ class QixMazeGenerator:
         for y in range(self.height):
             for x in range(1, middle + 1):
                 # Mirror x position (flip across middle)
-                mirror_x = self.width - x
+                mirror_x = self.width - 1 - x
 
                 # Copy left cell to mirrored right position
                 self.grid[y][mirror_x] = self.grid[y][x]
@@ -273,6 +273,7 @@ class QixMazeGenerator:
             for x in range(max(0, self.width - 3), self.width):
                 if self.grid[y][x] == CORRIDOR:
                     self.end_pos = (x, y)
+                    break
             if self.end_pos:
                 break
 

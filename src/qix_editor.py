@@ -5,13 +5,14 @@ Generates mazes procedurally with live parameter adjustment.
 
 import pygame
 import configparser
+import os
 from systems.qix_maze import QixMazeGenerator, WALL, CORRIDOR, CHAMBER
 
 
 class ParameterEditor:
     """Interactive parameter editor for Qix maze generation."""
 
-    def __init__(self, config_path='qix_config.ini'):
+    def __init__(self, config_path='config/qix_config.ini'):
         """Initialize editor with config file."""
         pygame.init()
 
@@ -223,7 +224,7 @@ class ParameterEditor:
 
 def main():
     """Entry point."""
-    editor = ParameterEditor('qix_config.ini')
+    editor = ParameterEditor('config/qix_config.ini')
     editor.run()
 
 
