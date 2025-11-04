@@ -1,25 +1,22 @@
 """
-Qix Level Parameter Editor - Tune generation parameters interactively.
-Generates mazes procedurally with live parameter adjustment.
+Maze Parameter Editor - Tune generation parameters interactively.
 """
 
 import pygame
 import configparser
-from systems.qix_maze import QixMazeGenerator, WALL, CORRIDOR, CHAMBER
+from systems.maze import Maze, WALL, PATH
 
 
 class ParameterEditor:
-    """Interactive parameter editor for Qix maze generation."""
+    """Interactive parameter editor for maze generation."""
 
-    def __init__(self, config_path='qix_config.ini'):
-        """Initialize editor with config file."""
+    def __init__(self, config_path='config/maze_config.ini'):
         pygame.init()
 
         self.config = configparser.ConfigParser()
         self.config.read(config_path)
         self.config_path = config_path
 
-        # Display
         self.window_width = self.config.getint('Display', 'window_width')
         self.window_height = self.config.getint('Display', 'window_height')
         self.fps = self.config.getint('Display', 'fps')
@@ -28,25 +25,21 @@ class ParameterEditor:
         pygame.display.set_caption(self.config.get('Display', 'title'))
         self.clock = pygame.time.Clock()
 
-        # Colors
         self.colors = {
             'background': tuple(map(int, self.config.get('Colors', 'background').split(','))),
             'wall': tuple(map(int, self.config.get('Colors', 'wall').split(','))),
             'corridor': tuple(map(int, self.config.get('Colors', 'corridor').split(','))),
-            'chamber': tuple(map(int, self.config.get('Colors', 'chamber').split(','))),
             'start': tuple(map(int, self.config.get('Colors', 'start_tile').split(','))),
             'end': tuple(map(int, self.config.get('Colors', 'end_tile').split(','))),
             'grid': tuple(map(int, self.config.get('Colors', 'grid_lines').split(','))),
         }
 
-        # Grid
         self.grid_width = self.config.getint('Grid', 'width')
         self.grid_height = self.config.getint('Grid', 'height')
         self.tile_size = self.config.getint('Grid', 'tile_size')
         self.maze_width = self.grid_width * self.tile_size
         self.maze_height = self.grid_height * self.tile_size
 
-        # Editable parameters: (type, value, min, max, step)
         self.parameters = {
             'fill_target': ('float', self.config.getfloat('Generation', 'fill_target'), 0.5, 0.95, 0.05),
             'chamber_min_size': ('int', self.config.getint('Generation', 'chamber_min_size'), 3, 7, 1),
@@ -59,14 +52,10 @@ class ParameterEditor:
         self.selected_param = 0
         self.editing = False
 
-        # Maze state
-        self.grid = None
-        self.start_pos = None
-        self.end_pos = None
+        self.maze = None
         self.last_generated = None
         self.generation_count = 0
 
-        # Fonts
         self.font_large = pygame.font.Font(None, 24)
         self.font_small = pygame.font.Font(None, 18)
         self.font_tiny = pygame.font.Font(None, 14)
@@ -75,22 +64,14 @@ class ParameterEditor:
         self.regenerate_maze()
 
     def regenerate_maze(self):
-        """Generate new maze with current parameters."""
-        # Update config
         for key, (ptype, val, _, _, _) in self.parameters.items():
             self.config.set('Generation', key, str(val))
 
-        # Generate
-        generator = QixMazeGenerator(self.grid_width, self.grid_height, self.config)
-        if generator.generate():
-            self.grid = generator.get_grid()
-            self.start_pos = generator.get_start_pos()
-            self.end_pos = generator.get_end_pos()
-            self.generation_count += 1
-            self.last_generated = f"Generated #{self.generation_count}"
+        self.maze = Maze(self.grid_width, self.tile_size)
+        self.generation_count += 1
+        self.last_generated = f"Generated #{self.generation_count}"
 
     def handle_events(self):
-        """Handle input."""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -113,7 +94,6 @@ class ParameterEditor:
                     self._save_config()
 
     def _adjust_param(self, delta):
-        """Adjust selected parameter."""
         key = self.param_keys[self.selected_param]
         ptype, val, min_val, max_val, step = self.parameters[key]
 
@@ -127,39 +107,34 @@ class ParameterEditor:
         self.regenerate_maze()
 
     def _save_config(self):
-        """Save parameters back to INI."""
         for key, (ptype, val, _, _, _) in self.parameters.items():
             self.config.set('Generation', key, str(val))
 
         with open(self.config_path, 'w') as f:
             self.config.write(f)
-        
-        self.last_generated = f"✓ Saved to {self.config_path}"
+
+        self.last_generated = f"Saved to {self.config_path}"
 
     def render(self):
-        """Render everything."""
         self.screen.fill(self.colors['background'])
 
-        if self.grid:
+        if self.maze:
             self._render_maze()
 
         self._render_ui_panel()
         pygame.display.flip()
 
     def _render_maze(self):
-        """Render maze grid."""
-        for y in range(self.grid_height):
-            for x in range(self.grid_width):
+        for y in range(self.maze.grid_size):
+            for x in range(self.maze.grid_size):
                 rect = pygame.Rect(x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size)
 
-                if (x, y) == self.start_pos:
+                if (x, y) == self.maze.start_pos:
                     color = self.colors['start']
-                elif (x, y) == self.end_pos:
+                elif (x, y) == self.maze.end_pos:
                     color = self.colors['end']
-                elif self.grid[y][x] == WALL:
+                elif self.maze.grid[y][x] == WALL:
                     color = self.colors['wall']
-                elif self.grid[y][x] == CHAMBER:
-                    color = self.colors['chamber']
                 else:
                     color = self.colors['corridor']
 
@@ -167,21 +142,17 @@ class ParameterEditor:
                 pygame.draw.rect(self.screen, self.colors['grid'], rect, 1)
 
     def _render_ui_panel(self):
-        """Render parameter panel."""
         panel_y = self.maze_height + 10
 
-        # Title
-        title = self.font_large.render("Qix Level Parameter Editor", True, (200, 200, 200))
+        title = self.font_large.render("Maze Parameter Editor", True, (200, 200, 200))
         self.screen.blit(title, (10, panel_y))
 
-        # Status
         if self.last_generated:
             status = self.font_small.render(self.last_generated, True, (100, 200, 100))
         else:
             status = self.font_small.render("Ready", True, (150, 150, 150))
         self.screen.blit(status, (10, panel_y + 30))
 
-        # Parameters
         y_offset = panel_y + 55
         for i, key in enumerate(self.param_keys):
             ptype, val, min_val, max_val, step = self.parameters[key]
@@ -199,7 +170,6 @@ class ParameterEditor:
             self.screen.blit(rendered, (10, y_offset))
             y_offset += 25
 
-        # Controls
         y_offset += 10
         controls = [
             "UP/DOWN: Select  |  ENTER: Edit  |  LEFT/RIGHT: Adjust",
@@ -212,7 +182,6 @@ class ParameterEditor:
             y_offset += 18
 
     def run(self):
-        """Main loop."""
         while self.running:
             self.handle_events()
             self.render()
@@ -222,8 +191,7 @@ class ParameterEditor:
 
 
 def main():
-    """Entry point."""
-    editor = ParameterEditor('qix_config.ini')
+    editor = ParameterEditor('config/maze_config.ini')
     editor.run()
 
 
