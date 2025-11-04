@@ -1,10 +1,78 @@
 """
-Greedy pathfinding for enemy navigation.
-Phase A5: Simple, cheap movement towards targets.
-Uses deterministic position-based logic for consistent behavior.
+Pathfinding for enemy navigation.
+Phase A5: BFS pathfinding for robust, guaranteed path finding.
+Greedy methods kept for backward compatibility.
 """
 
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
+from collections import deque
+
+
+def find_path_bfs(
+    start_x: int,
+    start_y: int,
+    target_x: int,
+    target_y: int,
+    is_walkable_callback
+) -> Optional[List[str]]:
+    """
+    Find path from start to target using BFS (Breadth-First Search).
+
+    BFS guarantees the shortest path and is optimal for small grid-based mazes.
+    Returns a list of directions to follow, or None if no path exists.
+
+    Args:
+        start_x: Starting tile X position
+        start_y: Starting tile Y position
+        target_x: Target tile X position
+        target_y: Target tile Y position
+        is_walkable_callback: Function(x, y) -> bool that checks if a tile is walkable
+
+    Returns:
+        List of directions ['up', 'down', 'left', 'right'] to reach target,
+        or None if no path exists
+    """
+    # Already at target
+    if start_x == target_x and start_y == target_y:
+        return []
+
+    # BFS setup
+    queue = deque([(start_x, start_y, [])])  # (x, y, path_so_far)
+    visited = {(start_x, start_y)}
+
+    # Direction mappings
+    directions = [
+        ('up', 0, -1),
+        ('down', 0, 1),
+        ('left', -1, 0),
+        ('right', 1, 0)
+    ]
+
+    while queue:
+        x, y, path = queue.popleft()
+
+        # Try all 4 directions
+        for direction_name, dx, dy in directions:
+            nx, ny = x + dx, y + dy
+
+            # Check if we reached the target
+            if nx == target_x and ny == target_y:
+                return path + [direction_name]
+
+            # Skip if already visited
+            if (nx, ny) in visited:
+                continue
+
+            # Skip if not walkable
+            if not is_walkable_callback(nx, ny):
+                continue
+
+            # Add to queue and mark as visited
+            visited.add((nx, ny))
+            queue.append((nx, ny, path + [direction_name]))
+
+    # No path found
+    return None
 
 
 def get_direction_towards_target(
