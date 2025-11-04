@@ -1,8 +1,8 @@
 # 🧠 Brain Maze
 
-> *Leave your thoughts behind to learn the facts ahead*
+> *Chase knowledge through the corridors of curiosity*
 
-An educational maze game where you play as a brain navigating procedurally generated mazes, placing thought-mines to capture roaming facts. Built with Python and Pygame.
+An educational maze game where you play as a brain navigating procedurally generated mazes, chasing and capturing roaming facts to learn. Built with Python and Pygame.
 
 [![Made with Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
 [![Powered by Pygame](https://img.shields.io/badge/Pygame-2.5+-green.svg)](https://www.pygame.org/)
@@ -13,10 +13,11 @@ An educational maze game where you play as a brain navigating procedurally gener
 ## 🎮 Features
 
 - 🧠 **Play as a Brain** - Navigate mazes in real-time
-- 💭 **Thought Mines** - Place strategic traps for wandering facts
+- 🏃 **Chase & Capture** - Hunt down roaming facts to learn from them
 - 🐱 **Educational Themes** - Learn facts about cats, bears, vehicles, and more
 - 🤖 **Smart AI** - Enemies with randomized behaviors and personalities
-- ⚡ **Power-ups** - Speed boosts, shields, extra mines (and cursed variants!)
+- ✨ **Learning Moments** - Freeze and glow after each capture while you read
+- ⚡ **Blessings & Curses** - Powerups that help or hinder your chase
 - 🎨 **Procedural Mazes** - Every level is unique
 - 🏆 **Progressive Difficulty** - Scales with player skill
 
@@ -47,23 +48,22 @@ python main.py
 ## 🎯 How to Play
 
 - **WASD / Arrow Keys** - Move your brain
-- **M** - Drop a thought mine
 - **ESC** - Pause menu
 
-**Goal:** Capture all facts by luring them into your thought mines. Avoid getting caught!
+**Goal:** Chase and capture all the roaming facts! When you catch one, you'll freeze and glow for a moment while learning a new fact.
 
 ---
 
 ## 🛠️ Development Status
 
-**Current Phase:** 🏗️ Phase A - Core Movement & Collision
+**Current Phase:** 🏗️ Phase A - Core Movement & Chase Mechanics
 
 | Phase | Status | Features |
 |-------|--------|----------|
-| **A** | 🏗️ In Progress | Player movement, maze generation, basic AI |
-| **B** | ⏳ Planned | Mine system |
-| **C** | ⏳ Planned | Powerups |
-| **D** | ⏳ Planned | Polish & progression |
+| **A** | 🏗️ In Progress | Player movement, maze generation, chase AI |
+| **B** | ⏳ Planned | Capture mechanics & fact display |
+| **C** | ⏳ Planned | Visual polish & powerups |
+| **D** | ⏳ Planned | Level progression & themes |
 
 See [DEVELOPER_ROADMAP.md](DEVELOPER_ROADMAP.md) for detailed implementation plan.
 
@@ -81,9 +81,9 @@ See [DEVELOPER_ROADMAP.md](DEVELOPER_ROADMAP.md) for detailed implementation pla
 ```
 brain_maze/
 ├── main.py              # Game loop
-├── entities/            # Player, enemies, mines
+├── entities/            # Player, enemies, powerups
 ├── systems/             # Maze, collision, effects
-├── ui/                  # HUD, trivia panel
+├── ui/                  # HUD, fact display
 ├── ai/                  # Behaviors, pathfinding
 ├── config/              # INI configuration files
 └── assets/data/         # Fact databases (JSON)
