@@ -17,7 +17,7 @@ from systems.maze import Maze
 from systems.collision import CollisionManager
 from systems.game_state import GameState
 from systems.effects import EffectsManager
-
+import systems.qix_maze
 
 class BrainMaze:
     """
