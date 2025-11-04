@@ -1,319 +1,288 @@
 """
-Maze generation system with multiple algorithms.
-- Original: Random wall scattering (Pac-Man style) with vertical symmetry
-- Qix: Corridor-carving algorithm with perfect left-right symmetry
+Maze generation system using corridor-carving algorithm with perfect symmetry.
 """
 
 import random
 import pygame
 import configparser
-from collections import deque
 from pathlib import Path
+from collections import deque
+from enum import Enum
 
-# Import Qix maze generator
-from systems.qix_maze import QixMazeGenerator, WALL as QIX_WALL, CORRIDOR as QIX_CORRIDOR
-
-# Cell types for original algorithm
 WALL = 1
 PATH = 0
+
+INTERNAL_WALL = 0
+INTERNAL_CORRIDOR = 1
+
+
+class Direction(Enum):
+    UP = (0, -1)
+    DOWN = (0, 1)
+    LEFT = (-1, 0)
+    RIGHT = (1, 0)
+
+    def turn_right(self):
+        """Rotate 90° clockwise."""
+        turns = {
+            Direction.UP: Direction.RIGHT,
+            Direction.RIGHT: Direction.DOWN,
+            Direction.DOWN: Direction.LEFT,
+            Direction.LEFT: Direction.UP,
+        }
+        return turns[self]
 
 
 class Maze:
     """
-    Maze generator using random wall scattering (Pac-Man style).
-    Creates an open field with short scattered wall segments.
-    Features vertical axis symmetry for beautiful, balanced layouts.
+    Maze generator with perfect left-right symmetry.
     """
 
-    def __init__(self, grid_size, tile_size, wall_density=0.2, max_wall_length=4, max_attempts=100, use_qix=True):
+    def __init__(self, grid_size, tile_size, wall_density=0.2, max_wall_length=4, max_attempts=100):
         """
         Initialize maze generator.
 
         Args:
             grid_size: Total grid size (e.g., 20 for 20x20 grid)
             tile_size: Size of each tile in pixels
-            wall_density: Target percentage of grid to be walls (0.0 to 1.0)
-            max_wall_length: Maximum length of wall segments in tiles
-            max_attempts: Maximum generation attempts before giving up
-            use_qix: If True, use Qix algorithm; if False, use original algorithm
+            wall_density: Ignored, kept for API compatibility
+            max_wall_length: Ignored, kept for API compatibility
+            max_attempts: Ignored, kept for API compatibility
         """
         self.tile_size = tile_size
-        self.wall_density = wall_density
-        self.max_wall_length = max_wall_length
-        self.max_attempts = max_attempts
-        self.use_qix = use_qix
 
-        # Qix requires odd width - adjust if needed
-        if use_qix and grid_size % 2 == 0:
+        if grid_size % 2 == 0:
             grid_size += 1
-            print(f"Adjusted grid size to {grid_size} (Qix requires odd width)")
 
         self.grid_size = grid_size
         self.grid = []
         self.start_pos = None
         self.end_pos = None
 
-        # Generate the maze
-        if use_qix:
-            self._generate_qix()
+        config = self._load_config()
+        self.fill_target = config.getfloat('Generation', 'fill_target')
+        self.chamber_min = config.getint('Generation', 'chamber_min_size')
+        self.chamber_max = config.getint('Generation', 'chamber_max_size')
+        self.corridor_len_min = config.getint('Generation', 'corridor_length_min')
+        self.corridor_len_max = config.getint('Generation', 'corridor_length_max')
+        self.generation_attempts = config.getint('Generation', 'max_attempts')
+
+        self._generate()
+
+    def _load_config(self):
+        """Load maze generation configuration."""
+        config = configparser.ConfigParser()
+        config_path = Path('config/maze_config.ini')
+
+        if not config_path.exists():
+            config_path = Path('config/qix_config.ini')
+
+        if config_path.exists():
+            config.read(config_path)
         else:
-            self._generate()
+            config['Generation'] = {
+                'fill_target': '0.8',
+                'chamber_min_size': '3',
+                'chamber_max_size': '5',
+                'corridor_length_min': '3',
+                'corridor_length_max': '8',
+                'max_attempts': '5'
+            }
+
+        return config
 
     def _generate(self):
-        """Generate maze using random wall scattering (Pac-Man style) with vertical symmetry."""
-        for attempt in range(self.max_attempts):
-            # Initialize grid - all paths
-            self.grid = [[PATH for _ in range(self.grid_size)] for _ in range(self.grid_size)]
+        """Generate maze using corridor-carving algorithm."""
+        for attempt in range(self.generation_attempts):
+            internal_grid = [[INTERNAL_WALL for _ in range(self.grid_size)] for _ in range(self.grid_size)]
 
-            # Calculate target number of wall tiles (for one half, will be mirrored)
-            total_tiles = self.grid_size * self.grid_size
-            target_walls_total = int(total_tiles * self.wall_density)
-            target_walls_half = target_walls_total // 2  # Only generate half, will mirror
+            chamber_size = random.randint(self.chamber_min, self.chamber_max)
+            self._carve_chamber(internal_grid, 1, 1, chamber_size, chamber_size)
+            self._carve_chamber(internal_grid, 1, self.grid_size - chamber_size - 1, chamber_size, chamber_size)
+            self._mirror_to_right(internal_grid)
 
-            # Place random wall segments on LEFT HALF only
-            walls_placed = 0
-            max_segment_attempts = target_walls_half * 3  # Prevent infinite loop
-            segment_attempts = 0
-            half_width = self.grid_size // 2
+            if self._carve_corridors(internal_grid):
+                self._mirror_to_right(internal_grid)
+                self._convert_grid(internal_grid)
+                self._find_start_end()
+                if self._is_connected():
+                    return
 
-            while walls_placed < target_walls_half and segment_attempts < max_segment_attempts:
-                segment_attempts += 1
-
-                # Random starting position (LEFT HALF only)
-                x = random.randint(0, half_width - 1)
-                y = random.randint(0, self.grid_size - 1)
-
-                # Random orientation (horizontal or vertical)
-                horizontal = random.choice([True, False])
-
-                # Random segment length (1 to max_wall_length)
-                length = random.randint(1, self.max_wall_length)
-
-                # Try to place wall segment (only in left half)
-                placed = self._place_wall_segment_with_mirror(x, y, length, horizontal)
-                if placed > 0:
-                    walls_placed += placed
-
-            # Set start and end positions
-            self._find_start_end_positions()
-
-            # Check if path exists from start to end AND all areas are reachable (no pockets)
-            if self._is_connected(self.start_pos, self.end_pos) and self._is_fully_traversable():
-                # Success!
-                return
-
-        # If we failed all attempts, create empty maze (all paths)
-        print(f"Warning: Failed to generate connected maze after {self.max_attempts} attempts. Using open field.")
         self.grid = [[PATH for _ in range(self.grid_size)] for _ in range(self.grid_size)]
-        self._find_start_end_positions()
+        self.start_pos = (1, 1)
+        self.end_pos = (self.grid_size - 2, self.grid_size - 2)
 
-    def _generate_qix(self):
-        """Generate maze using Qix algorithm with perfect symmetry."""
-        # Load Qix config
-        qix_config = configparser.ConfigParser()
-        qix_config_path = Path('config/qix_config.ini')
+    def _carve_chamber(self, grid, x, y, width, height):
+        """Carve a rectangular chamber."""
+        for cy in range(y, min(y + height, self.grid_size)):
+            for cx in range(x, min(x + width, self.grid_size)):
+                grid[cy][cx] = INTERNAL_CORRIDOR
 
-        if not qix_config_path.exists():
-            print(f"Warning: Qix config not found at {qix_config_path}. Using original algorithm.")
-            self._generate()
-            return
-
-        qix_config.read(qix_config_path)
-
-        # Create Qix generator (square maze)
-        qix_gen = QixMazeGenerator(self.grid_size, self.grid_size, qix_config)
-
-        if qix_gen.generate():
-            # Get generated grid
-            qix_grid = qix_gen.get_grid()
-
-            # Convert from Qix format (0=wall, 1=corridor) to our format (1=wall, 0=path)
-            # Simply invert: if cell is QIX_WALL (0), make it WALL (1), else make it PATH (0)
-            self.grid = []
-            for row in qix_grid:
-                converted_row = [WALL if cell == QIX_WALL else PATH for cell in row]
-                self.grid.append(converted_row)
-
-            # Get start and end positions from Qix generator
-            self.start_pos = qix_gen.get_start_pos()
-            self.end_pos = qix_gen.get_end_pos()
-        else:
-            print("Warning: Qix generation failed. Using empty field.")
-            self.grid = [[PATH for _ in range(self.grid_size)] for _ in range(self.grid_size)]
-            self._find_start_end_positions()
-
-    def _place_wall_segment_with_mirror(self, x, y, length, horizontal):
-        """
-        Try to place a wall segment at the given position and mirror it to the right side.
-
-        Args:
-            x: Starting X coordinate (left half only)
-            y: Starting Y coordinate
-            length: Length of wall segment
-            horizontal: True for horizontal wall, False for vertical
-
-        Returns:
-            int: Number of wall tiles placed (0 if failed)
-        """
-        half_width = self.grid_size // 2
-
-        # Check if segment fits in left half
-        if horizontal:
-            if x + length > half_width:
-                return 0
-        else:
-            if y + length > self.grid_size:
-                return 0
-
-        # Place the wall segment on LEFT side
-        tiles_placed = 0
-        for i in range(length):
-            if horizontal:
-                self.grid[y][x + i] = WALL
-                tiles_placed += 1
-            else:
-                self.grid[y + i][x] = WALL
-                tiles_placed += 1
-
-        # Mirror to RIGHT side
-        for i in range(length):
-            if horizontal:
-                # Mirror x-coordinate for horizontal walls
-                mirror_x = self.grid_size - 1 - (x + i)
-                self.grid[y][mirror_x] = WALL
-            else:
-                # Mirror x-coordinate for vertical walls
+    def _mirror_to_right(self, grid):
+        """Mirror left half to right half across vertical axis."""
+        middle = self.grid_size // 2
+        for y in range(self.grid_size):
+            for x in range(1, middle + 1):
                 mirror_x = self.grid_size - 1 - x
-                self.grid[y + i][mirror_x] = WALL
+                grid[y][mirror_x] = grid[y][x]
 
-        return tiles_placed
+    def _carve_corridors(self, grid):
+        """Carve corridors on left half until fill target reached."""
+        iterations = 0
+        max_iterations = 10000
 
-    def _is_connected(self, start_pos, end_pos):
-        """
-        Check if there's a path from start to end using BFS.
+        while self._get_projected_fill(grid) < self.fill_target and iterations < max_iterations:
+            iterations += 1
+            frontier_cells = self._get_frontier_cells(grid)
 
-        Args:
-            start_pos: (x, y) tuple of start position
-            end_pos: (x, y) tuple of end position
+            if not frontier_cells:
+                break
 
-        Returns:
-            bool: True if path exists
-        """
-        if start_pos == end_pos:
-            return True
+            start_cell = random.choice(frontier_cells)
+            self._carve_pattern_from(grid, start_cell)
 
-        # BFS from start to end
-        queue = deque([start_pos])
-        visited = set([start_pos])
+        return self._get_projected_fill(grid) >= self.fill_target
+
+    def _get_frontier_cells(self, grid):
+        """Get all corridor cells adjacent to walls on left half."""
+        frontier = []
+        middle = self.grid_size // 2
+
+        for y in range(self.grid_size):
+            for x in range(middle + 1):
+                if grid[y][x] == INTERNAL_CORRIDOR:
+                    for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
+                        nx, ny = x + dx, y + dy
+                        if self._is_valid(nx, ny) and grid[ny][nx] == INTERNAL_WALL:
+                            frontier.append((x, y))
+                            break
+
+        return frontier
+
+    def _carve_pattern_from(self, grid, start_pos):
+        """Carve an L-shaped pattern from start position."""
+        x, y = start_pos
+        initial_dir = random.choice(list(Direction))
+
+        segments = [
+            ('A', initial_dir),
+            ('B', initial_dir.turn_right()),
+            ('A', initial_dir.turn_right().turn_right()),
+            ('B', initial_dir.turn_right().turn_right().turn_right()),
+        ]
+
+        current_x, current_y = x, y
+
+        for segment_type, direction in segments:
+            length = random.randint(self.corridor_len_min, self.corridor_len_max)
+            carved_length = self._carve_segment(grid, current_x, current_y, direction, length)
+
+            if carved_length > 0:
+                dx, dy = direction.value
+                current_x += dx * carved_length
+                current_y += dy * carved_length
+
+    def _carve_segment(self, grid, start_x, start_y, direction, length):
+        """Carve a corridor segment in given direction on left half only."""
+        dx, dy = direction.value
+        carved = 0
+        x, y = start_x, start_y
+        middle = self.grid_size // 2
+
+        for step in range(length):
+            x += dx
+            y += dy
+
+            if not self._is_valid(x, y):
+                break
+
+            if x > middle:
+                break
+
+            if grid[y][x] == INTERNAL_CORRIDOR:
+                break
+
+            if grid[y][x] == INTERNAL_WALL:
+                grid[y][x] = INTERNAL_CORRIDOR
+                carved += 1
+            else:
+                break
+
+        return carved
+
+    def _get_projected_fill(self, grid):
+        """Calculate projected fill percentage after mirroring left half to right."""
+        middle = self.grid_size // 2
+        filled_left = 0
+        filled_middle = 0
+
+        for y in range(self.grid_size):
+            for x in range(self.grid_size):
+                if grid[y][x] == INTERNAL_CORRIDOR:
+                    if x < middle:
+                        filled_left += 1
+                    elif x == middle:
+                        filled_middle += 1
+
+        projected_filled = (filled_left * 2) + filled_middle
+        total = self.grid_size * self.grid_size
+        return projected_filled / total
+
+    def _convert_grid(self, internal_grid):
+        """Convert internal representation to public representation."""
+        self.grid = [[WALL if cell == INTERNAL_WALL else PATH for cell in row] for row in internal_grid]
+
+    def _find_start_end(self):
+        """Set start/end positions in opposite corners."""
+        for y in range(min(3, self.grid_size)):
+            for x in range(min(3, self.grid_size)):
+                if self.grid[y][x] == PATH:
+                    self.start_pos = (x, y)
+                    break
+            if self.start_pos:
+                break
+
+        for y in range(max(0, self.grid_size - 3), self.grid_size):
+            for x in range(max(0, self.grid_size - 3), self.grid_size):
+                if self.grid[y][x] == PATH:
+                    self.end_pos = (x, y)
+                    break
+            if self.end_pos:
+                break
+
+        if not self.start_pos:
+            self.start_pos = (1, 1)
+        if not self.end_pos:
+            self.end_pos = (self.grid_size - 2, self.grid_size - 2)
+
+    def _is_connected(self):
+        """Check if start and end are connected via BFS."""
+        if not self.start_pos or not self.end_pos:
+            return False
+
+        queue = deque([self.start_pos])
+        visited = {self.start_pos}
 
         while queue:
             x, y = queue.popleft()
 
-            # Check all 4 neighbors
+            if (x, y) == self.end_pos:
+                return True
+
             for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
                 nx, ny = x + dx, y + dy
 
-                # Check if we reached the end
-                if (nx, ny) == end_pos:
-                    return True
-
-                # Check if valid and unvisited path
-                if (self._is_valid_grid_cell(nx, ny) and
-                    not self.is_wall(nx, ny) and
-                    (nx, ny) not in visited):
+                if (self._is_valid(nx, ny) and
+                    (nx, ny) not in visited and
+                    self.grid[ny][nx] == PATH):
                     visited.add((nx, ny))
                     queue.append((nx, ny))
 
         return False
 
-    def _is_fully_traversable(self):
-        """
-        Check if all path cells are reachable from start (no isolated pockets).
-
-        Returns:
-            bool: True if entire maze is traversable with no pockets
-        """
-        if not self.start_pos:
-            return False
-
-        # Count total path cells
-        total_paths = 0
-        for y in range(self.grid_size):
-            for x in range(self.grid_size):
-                if not self.is_wall(x, y):
-                    total_paths += 1
-
-        # BFS from start to count reachable cells
-        queue = deque([self.start_pos])
-        visited = set([self.start_pos])
-
-        while queue:
-            x, y = queue.popleft()
-
-            for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
-                nx, ny = x + dx, y + dy
-
-                if (self._is_valid_grid_cell(nx, ny) and
-                    not self.is_wall(nx, ny) and
-                    (nx, ny) not in visited):
-                    visited.add((nx, ny))
-                    queue.append((nx, ny))
-
-        # All path cells must be reachable
-        return len(visited) == total_paths
-
-    def _is_valid_grid_cell(self, x, y):
-        """
-        Check if grid coordinates are within bounds.
-
-        Args:
-            x: Grid X coordinate
-            y: Grid Y coordinate
-
-        Returns:
-            bool: True if valid
-        """
+    def _is_valid(self, x, y):
+        """Check if coordinates are within bounds."""
         return 0 <= x < self.grid_size and 0 <= y < self.grid_size
-
-    def _find_start_end_positions(self):
-        """
-        Find start and end positions in opposite corners.
-        Uses grid corners and ensures they're on path tiles.
-        """
-        # Define corner pairs (opposite corners)
-        corner_pairs = [
-            ((1, 1), (self.grid_size - 2, self.grid_size - 2)),  # Top-left & Bottom-right
-            ((self.grid_size - 2, 1), (1, self.grid_size - 2))   # Top-right & Bottom-left
-        ]
-
-        # Pick a random corner pair
-        start_corner, end_corner = random.choice(corner_pairs)
-
-        # Find available path tile near start corner
-        start_pos = None
-        for dy in range(-1, 2):
-            for dx in range(-1, 2):
-                x, y = start_corner[0] + dx, start_corner[1] + dy
-                if self._is_valid_grid_cell(x, y) and not self.is_wall(x, y):
-                    start_pos = (x, y)
-                    break
-            if start_pos:
-                break
-
-        # Find available path tile near end corner
-        end_pos = None
-        for dy in range(-1, 2):
-            for dx in range(-1, 2):
-                x, y = end_corner[0] + dx, end_corner[1] + dy
-                if self._is_valid_grid_cell(x, y) and not self.is_wall(x, y):
-                    end_pos = (x, y)
-                    break
-            if end_pos:
-                break
-
-        # Set positions (with fallback)
-        self.start_pos = start_pos if start_pos else (1, 1)
-        self.end_pos = end_pos if end_pos else (self.grid_size - 2, self.grid_size - 2)
 
     def get_start_position(self):
         """
@@ -344,7 +313,7 @@ class Maze:
         Returns:
             bool: True if cell is a wall or out of bounds
         """
-        if not self._is_valid_grid_cell(x, y):
+        if not self._is_valid(x, y):
             return True
         return self.grid[y][x] == WALL
 
@@ -361,13 +330,11 @@ class Maze:
         Returns:
             bool: True if movement is valid (target is not a wall)
         """
-        # Check if target is valid and not a wall
         return not self.is_wall(to_x, to_y)
 
     def render(self, surface, colors):
         """
         Render the maze to a surface.
-        Each grid cell is drawn as either a wall (full square) or a path.
 
         Args:
             surface: Pygame surface to draw on
@@ -382,7 +349,6 @@ class Maze:
                     self.tile_size
                 )
 
-                # Determine color based on cell type and position
                 if self.grid[y][x] == WALL:
                     pygame.draw.rect(surface, colors['wall'], rect)
                 elif (x, y) == self.start_pos:
