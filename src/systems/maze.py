@@ -1,15 +1,19 @@
 """
-Maze generation system using random wall scattering (Pac-Man style).
-Phase A4: Pac-Man style open field with scattered short wall segments.
-Features vertical axis symmetry for aesthetic appeal.
-Each wall occupies a full grid square.
+Maze generation system with multiple algorithms.
+- Original: Random wall scattering (Pac-Man style) with vertical symmetry
+- Qix: Corridor-carving algorithm with perfect left-right symmetry
 """
 
 import random
 import pygame
+import configparser
 from collections import deque
+from pathlib import Path
 
-# Cell types
+# Import Qix maze generator
+from systems.qix_maze import QixMazeGenerator, WALL as QIX_WALL, CORRIDOR as QIX_CORRIDOR
+
+# Cell types for original algorithm
 WALL = 1
 PATH = 0
 
@@ -21,7 +25,7 @@ class Maze:
     Features vertical axis symmetry for beautiful, balanced layouts.
     """
 
-    def __init__(self, grid_size, tile_size, wall_density=0.2, max_wall_length=4, max_attempts=100):
+    def __init__(self, grid_size, tile_size, wall_density=0.2, max_wall_length=4, max_attempts=100, use_qix=True):
         """
         Initialize maze generator.
 
@@ -31,18 +35,29 @@ class Maze:
             wall_density: Target percentage of grid to be walls (0.0 to 1.0)
             max_wall_length: Maximum length of wall segments in tiles
             max_attempts: Maximum generation attempts before giving up
+            use_qix: If True, use Qix algorithm; if False, use original algorithm
         """
-        self.grid_size = grid_size
         self.tile_size = tile_size
         self.wall_density = wall_density
         self.max_wall_length = max_wall_length
         self.max_attempts = max_attempts
+        self.use_qix = use_qix
+
+        # Qix requires odd width - adjust if needed
+        if use_qix and grid_size % 2 == 0:
+            grid_size += 1
+            print(f"Adjusted grid size to {grid_size} (Qix requires odd width)")
+
+        self.grid_size = grid_size
         self.grid = []
         self.start_pos = None
         self.end_pos = None
 
         # Generate the maze
-        self._generate()
+        if use_qix:
+            self._generate_qix()
+        else:
+            self._generate()
 
     def _generate(self):
         """Generate maze using random wall scattering (Pac-Man style) with vertical symmetry."""
@@ -91,6 +106,41 @@ class Maze:
         print(f"Warning: Failed to generate connected maze after {self.max_attempts} attempts. Using open field.")
         self.grid = [[PATH for _ in range(self.grid_size)] for _ in range(self.grid_size)]
         self._find_start_end_positions()
+
+    def _generate_qix(self):
+        """Generate maze using Qix algorithm with perfect symmetry."""
+        # Load Qix config
+        qix_config = configparser.ConfigParser()
+        qix_config_path = Path('config/qix_config.ini')
+
+        if not qix_config_path.exists():
+            print(f"Warning: Qix config not found at {qix_config_path}. Using original algorithm.")
+            self._generate()
+            return
+
+        qix_config.read(qix_config_path)
+
+        # Create Qix generator (square maze)
+        qix_gen = QixMazeGenerator(self.grid_size, self.grid_size, qix_config)
+
+        if qix_gen.generate():
+            # Get generated grid
+            qix_grid = qix_gen.get_grid()
+
+            # Convert from Qix format (0=wall, 1=corridor) to our format (1=wall, 0=path)
+            # Simply invert: if cell is QIX_WALL (0), make it WALL (1), else make it PATH (0)
+            self.grid = []
+            for row in qix_grid:
+                converted_row = [WALL if cell == QIX_WALL else PATH for cell in row]
+                self.grid.append(converted_row)
+
+            # Get start and end positions from Qix generator
+            self.start_pos = qix_gen.get_start_pos()
+            self.end_pos = qix_gen.get_end_pos()
+        else:
+            print("Warning: Qix generation failed. Using empty field.")
+            self.grid = [[PATH for _ in range(self.grid_size)] for _ in range(self.grid_size)]
+            self._find_start_end_positions()
 
     def _place_wall_segment_with_mirror(self, x, y, length, horizontal):
         """
