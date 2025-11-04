@@ -91,12 +91,15 @@ class QixMazeGenerator:
             # Step 3: Mirror chambers to right half (skip middle column for odd width)
             self._mirror_to_right()
 
-            # Step 4: Carve corridors until fill target reached
+            # Step 4: Carve corridors on LEFT HALF until fill target reached
             if self._carve_corridors():
-                # Step 5: Set start/end positions
+                # Step 5: Mirror corridors to right half for perfect symmetry
+                self._mirror_to_right()
+
+                # Step 6: Set start/end positions
                 self._find_start_end()
 
-                # Step 6: Verify connectivity
+                # Step 7: Verify connectivity
                 if self._is_connected():
                     return True
 
@@ -131,15 +134,16 @@ class QixMazeGenerator:
 
     def _carve_corridors(self):
         """
-        Carve corridors using Qix algorithm until fill target reached.
+        Carve corridors using Qix algorithm on LEFT HALF until fill target reached.
+        Uses projected fill (accounting for mirroring) to determine when to stop.
 
         Returns:
-            bool: True if fill target reached
+            bool: True if projected fill target would be reached after mirroring
         """
         iterations = 0
         max_iterations = 10000  # Safety limit
 
-        while self._get_fill_percentage() < self.fill_target and iterations < max_iterations:
+        while self._get_projected_fill() < self.fill_target and iterations < max_iterations:
             iterations += 1
 
             # Get random frontier cell (or any corridor cell)
@@ -151,17 +155,18 @@ class QixMazeGenerator:
             start_cell = random.choice(frontier_cells)
             self._carve_pattern_from(start_cell)
 
-        return self._get_fill_percentage() >= self.fill_target
+        return self._get_projected_fill() >= self.fill_target
 
     def _get_frontier_cells(self):
         """
-        Get all corridor cells adjacent to walls.
-        These are carving endpoints.
+        Get all corridor cells adjacent to walls on LEFT HALF only.
+        These are carving endpoints. Ensures symmetry by only carving on left.
         """
         frontier = []
+        middle = self.width // 2
 
         for y in range(self.height):
-            for x in range(self.width):
+            for x in range(middle + 1):  # Only left half + middle
                 if self.grid[y][x] == CORRIDOR:
                     # Check if adjacent to wall
                     for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
@@ -214,8 +219,9 @@ class QixMazeGenerator:
 
     def _carve_segment(self, start_x, start_y, direction, length):
         """
-        Carve a corridor segment in given direction.
-        Stop if: reach target length, hit existing corridor, or hit wall/no space.
+        Carve a corridor segment in given direction on LEFT HALF only.
+        Stop if: reach target length, hit existing corridor, cross middle line,
+        or hit wall/no space.
 
         Args:
             start_x, start_y: Starting position
@@ -228,6 +234,7 @@ class QixMazeGenerator:
         dx, dy = direction.value
         carved = 0
         x, y = start_x, start_y
+        middle = self.width // 2
 
         for step in range(length):
             x += dx
@@ -235,6 +242,10 @@ class QixMazeGenerator:
 
             # Check bounds
             if not self._is_valid(x, y):
+                break
+
+            # Stop at middle line to maintain symmetry
+            if x > middle:
                 break
 
             # If we hit existing corridor, we connected!
@@ -316,6 +327,28 @@ class QixMazeGenerator:
         )
         total = self.width * self.height
         return filled / total
+
+    def _get_projected_fill(self):
+        """
+        Calculate projected fill percentage after mirroring left half to right.
+        Used during corridor carving to determine when to stop.
+        """
+        middle = self.width // 2
+        filled_left = 0
+        filled_middle = 0
+
+        for y in range(self.height):
+            for x in range(self.width):
+                if self.grid[y][x] in [CORRIDOR, CHAMBER]:
+                    if x < middle:
+                        filled_left += 1
+                    elif x == middle:
+                        filled_middle += 1
+
+        # After mirroring: left half cells appear on both sides, middle stays single
+        projected_filled = (filled_left * 2) + filled_middle
+        total = self.width * self.height
+        return projected_filled / total
 
     def get_grid(self):
         """Return the grid."""
