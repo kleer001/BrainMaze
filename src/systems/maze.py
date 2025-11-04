@@ -119,7 +119,7 @@ class Maze:
         """Mirror left half to right half across vertical axis."""
         middle = self.grid_size // 2
         for y in range(self.grid_size):
-            for x in range(1, middle + 1):
+            for x in range(middle + 1):
                 mirror_x = self.grid_size - 1 - x
                 grid[y][mirror_x] = grid[y][x]
 
@@ -179,6 +179,36 @@ class Maze:
                 current_x += dx * carved_length
                 current_y += dy * carved_length
 
+    def _would_create_2x2_block(self, grid, x, y, direction):
+        """Check if carving this cell would create a 2x2 block of corridors."""
+        dx, dy = direction.value
+
+        # Get perpendicular offsets
+        if dx != 0:  # Horizontal carving, check vertical neighbors
+            perp_offsets = [(0, -1), (0, 1)]
+        else:  # Vertical carving, check horizontal neighbors
+            perp_offsets = [(-1, 0), (1, 0)]
+
+        # Check if either perpendicular neighbor would form a 2x2 block
+        for px, py in perp_offsets:
+            nx, ny = x + px, y + py
+
+            # If perpendicular neighbor is a corridor, check for 2x2 block
+            if self._is_valid(nx, ny) and grid[ny][nx] == INTERNAL_CORRIDOR:
+                # Check diagonal positions that would complete a 2x2 block
+                # For horizontal carving with top/bottom neighbor:
+                # Check the previous and next cells in carving direction
+                check_x1, check_y1 = x - dx, y
+                check_x2, check_y2 = nx - dx, ny
+
+                if (self._is_valid(check_x1, check_y1) and
+                    self._is_valid(check_x2, check_y2) and
+                    grid[check_y1][check_x1] == INTERNAL_CORRIDOR and
+                    grid[check_y2][check_x2] == INTERNAL_CORRIDOR):
+                    return True
+
+        return False
+
     def _carve_segment(self, grid, start_x, start_y, direction, length):
         """Carve a corridor segment in given direction on left half only."""
         dx, dy = direction.value
@@ -197,6 +227,10 @@ class Maze:
                 break
 
             if grid[y][x] == INTERNAL_CORRIDOR:
+                break
+
+            # Don't carve if it would create a 2x2 block of corridors
+            if self._would_create_2x2_block(grid, x, y, direction):
                 break
 
             if grid[y][x] == INTERNAL_WALL:
