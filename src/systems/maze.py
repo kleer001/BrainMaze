@@ -5,6 +5,7 @@ Maze generation system using corridor-carving algorithm with perfect symmetry.
 import random
 import pygame
 import configparser
+import time
 from pathlib import Path
 from collections import deque
 from enum import Enum
@@ -38,7 +39,7 @@ class Maze:
     Maze generator with perfect left-right symmetry.
     """
 
-    def __init__(self, grid_size, tile_size, wall_density=0.2, max_wall_length=4, max_attempts=100):
+    def __init__(self, grid_size, tile_size, wall_density=0.2, max_wall_length=4, max_attempts=100, debug_delay=0.0):
         """
         Initialize maze generator.
 
@@ -48,8 +49,10 @@ class Maze:
             wall_density: Ignored, kept for API compatibility
             max_wall_length: Ignored, kept for API compatibility
             max_attempts: Ignored, kept for API compatibility
+            debug_delay: Delay in seconds after carving each path cell (0 = no delay, 0.1 = 100ms delay for debugging)
         """
         self.tile_size = tile_size
+        self.debug_delay = debug_delay
 
         if grid_size % 2 == 0:
             grid_size += 1
@@ -236,6 +239,10 @@ class Maze:
             if grid[y][x] == INTERNAL_WALL:
                 grid[y][x] = INTERNAL_CORRIDOR
                 carved += 1
+
+                # Debug delay to visualize path carving
+                if self.debug_delay > 0:
+                    time.sleep(self.debug_delay)
             else:
                 break
 

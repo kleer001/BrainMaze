@@ -75,7 +75,11 @@ class BrainMaze:
         wall_density = self.config.getfloat('Maze', 'wall_density')
         max_wall_length = self.config.getint('Maze', 'max_wall_length')
         max_attempts = self.config.getint('Maze', 'max_generation_attempts')
-        self.maze = Maze(grid_size, tile_size, wall_density, max_wall_length, max_attempts)
+
+        # Debug delay for visualizing maze generation (set to 0.1 to see path carving in slow motion)
+        debug_delay = 0.0  # Change to 0.1 to enable debug visualization
+
+        self.maze = Maze(grid_size, tile_size, wall_density, max_wall_length, max_attempts, debug_delay)
 
         # Create collision manager
         self.collision_manager = CollisionManager(self.maze, self.config)
