@@ -179,33 +179,154 @@ class Maze:
                 current_x += dx * carved_length
                 current_y += dy * carved_length
 
-    def _would_create_2x2_block(self, grid, x, y, direction):
-        """Check if carving this cell would create a 2x2 block of corridors."""
+    def _would_create_parallel_corridor(self, grid, x, y, direction):
+        """
+        Check if carving would create problematic parallel corridors.
+        Only prevents cases that would create a thin (1-cell wide) wall between parallel corridors.
+        """
         dx, dy = direction.value
 
-        # Get perpendicular offsets
-        if dx != 0:  # Horizontal carving, check vertical neighbors
-            perp_offsets = [(0, -1), (0, 1)]
-        else:  # Vertical carving, check horizontal neighbors
-            perp_offsets = [(-1, 0), (1, 0)]
+        # Get perpendicular directions
+        if dx != 0:  # Horizontal movement, check vertical
+            perp_dirs = [(0, -1), (0, 1)]
+        else:  # Vertical movement, check horizontal
+            perp_dirs = [(-1, 0), (1, 0)]
 
-        # Check if either perpendicular neighbor would form a 2x2 block
-        for px, py in perp_offsets:
-            nx, ny = x + px, y + py
+        # Check both perpendicular sides
+        for px, py in perp_dirs:
+            # Check if we're creating a situation where there are parallel corridors
+            # with only a 1-cell wall between them, AND that wall would be isolated
 
-            # If perpendicular neighbor is a corridor, check for 2x2 block
-            if self._is_valid(nx, ny) and grid[ny][nx] == INTERNAL_CORRIDOR:
-                # Check diagonal positions that would complete a 2x2 block
-                # For horizontal carving with top/bottom neighbor:
-                # Check the previous and next cells in carving direction
-                check_x1, check_y1 = x - dx, y
-                check_x2, check_y2 = nx - dx, ny
+            # Position perpendicular to us
+            perp_x, perp_y = x + px, y + py
 
-                if (self._is_valid(check_x1, check_y1) and
-                    self._is_valid(check_x2, check_y2) and
-                    grid[check_y1][check_x1] == INTERNAL_CORRIDOR and
-                    grid[check_y2][check_x2] == INTERNAL_CORRIDOR):
-                    return True
+            # If there's a corridor perpendicular to our carving direction
+            if self._is_valid(perp_x, perp_y) and grid[perp_y][perp_x] == INTERNAL_CORRIDOR:
+                # Check cells before and after in our carving direction
+                prev_x, prev_y = x - dx, y - dy
+                next_x, next_y = x + dx, y + dy
+
+                # Previous cell perpendicular
+                prev_perp_x, prev_perp_y = prev_x + px, prev_y + py
+
+                # Only block if:
+                # 1. Previous cell in carving direction is a corridor
+                # 2. Previous cell's perpendicular neighbor is also a corridor
+                # 3. The wall between them (at perp_x, perp_y - dx/dy) would be thin
+                if (self._is_valid(prev_x, prev_y) and
+                    grid[prev_y][prev_x] == INTERNAL_CORRIDOR and
+                    self._is_valid(prev_perp_x, prev_perp_y) and
+                    grid[prev_perp_y][prev_perp_x] == INTERNAL_CORRIDOR):
+
+                    # Check if the wall between the parallel corridors would be isolated
+                    # (surrounded on ends)
+                    wall_x, wall_y = perp_x + dx, perp_y + dy
+                    if (self._is_valid(wall_x, wall_y) and
+                        grid[wall_y][wall_x] == INTERNAL_CORRIDOR):
+                        # This would create a very thin wall segment, block it
+                        return True
+
+        return False
+
+    def _would_create_wall_island(self, grid, x, y):
+        """
+        Check if carving this cell would create a completely isolated wall cell.
+        A wall is an island if it's a single cell surrounded by corridors on all 4 sides
+        AND has no diagonal wall neighbors.
+        """
+        # Check all orthogonally adjacent wall cells
+        for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
+            wx, wy = x + dx, y + dy
+
+            # Skip if not valid or not a wall
+            if not self._is_valid(wx, wy) or grid[wy][wx] != INTERNAL_WALL:
+                continue
+
+            # Count corridor neighbors of this wall
+            corridor_neighbors = 0
+            # Count wall neighbors of this wall (orthogonal and diagonal)
+            wall_neighbors = 0
+
+            # Check orthogonal neighbors
+            for ddx, ddy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
+                nx, ny = wx + ddx, wy + ddy
+                if not self._is_valid(nx, ny):
+                    continue
+
+                if grid[ny][nx] == INTERNAL_CORRIDOR or (nx == x and ny == y):
+                    corridor_neighbors += 1
+                elif grid[ny][nx] == INTERNAL_WALL:
+                    wall_neighbors += 1
+
+            # Check diagonal neighbors for wall connections
+            for ddx, ddy in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
+                nx, ny = wx + ddx, wy + ddy
+                if self._is_valid(nx, ny) and grid[ny][nx] == INTERNAL_WALL:
+                    wall_neighbors += 1
+
+            # Wall would be an island if surrounded by corridors AND has no wall neighbors
+            if corridor_neighbors >= 4 and wall_neighbors == 0:
+                return True
+
+        return False
+
+    def _has_2x2_corridor_block(self, grid, x, y):
+        """
+        Check if carving here would create a problematic 2x2 block of corridors.
+        Allows 2x2 blocks that are part of larger (3x3+) areas (chambers),
+        but prevents narrow double-wide corridors.
+        """
+        # Check all 4 possible 2x2 blocks where (x,y) is a corner
+        blocks_to_check = [
+            # (x,y) is top-left: check right, down, diagonal
+            [(1, 0), (0, 1), (1, 1)],
+            # (x,y) is top-right: check left, down, diagonal
+            [(-1, 0), (0, 1), (-1, 1)],
+            # (x,y) is bottom-left: check right, up, diagonal
+            [(1, 0), (0, -1), (1, -1)],
+            # (x,y) is bottom-right: check left, up, diagonal
+            [(-1, 0), (0, -1), (-1, -1)]
+        ]
+
+        for pattern in blocks_to_check:
+            # Check if this forms a 2x2 block
+            forms_2x2 = True
+            for dx, dy in pattern:
+                nx, ny = x + dx, y + dy
+                if not self._is_valid(nx, ny) or grid[ny][nx] != INTERNAL_CORRIDOR:
+                    forms_2x2 = False
+                    break
+
+            if not forms_2x2:
+                continue
+
+            # We have a 2x2 block. Check if it's part of a larger area (chamber)
+            # by seeing if it can expand to 3x3
+            # For simplicity, just check if there are corridors beyond the 2x2 in multiple directions
+            expansion_count = 0
+
+            # Get the 2x2 bounding box
+            min_x = min(x, x + pattern[0][0], x + pattern[1][0], x + pattern[2][0])
+            max_x = max(x, x + pattern[0][0], x + pattern[1][0], x + pattern[2][0])
+            min_y = min(y, y + pattern[0][1], y + pattern[1][1], y + pattern[2][1])
+            max_y = max(y, y + pattern[0][1], y + pattern[1][1], y + pattern[2][1])
+
+            # Check if corridors extend beyond the 2x2 block
+            check_points = [
+                (min_x - 1, min_y), (min_x - 1, max_y),  # Left
+                (max_x + 1, min_y), (max_x + 1, max_y),  # Right
+                (min_x, min_y - 1), (max_x, min_y - 1),  # Top
+                (min_x, max_y + 1), (max_x, max_y + 1),  # Bottom
+            ]
+
+            for cx, cy in check_points:
+                if self._is_valid(cx, cy) and grid[cy][cx] == INTERNAL_CORRIDOR:
+                    expansion_count += 1
+
+            # If the 2x2 can expand in multiple directions, it's likely part of a chamber
+            # Allow it. Otherwise, it's a narrow double-width corridor - block it.
+            if expansion_count < 4:  # Less than 4 expansions means it's narrow
+                return True
 
         return False
 
@@ -230,7 +351,11 @@ class Maze:
                 break
 
             # Don't carve if it would create a 2x2 block of corridors
-            if self._would_create_2x2_block(grid, x, y, direction):
+            if self._has_2x2_corridor_block(grid, x, y):
+                break
+
+            # Don't carve if it would create completely isolated wall cells
+            if self._would_create_wall_island(grid, x, y):
                 break
 
             if grid[y][x] == INTERNAL_WALL:
