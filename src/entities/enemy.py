@@ -60,7 +60,27 @@ class Enemy(pygame.sprite.Sprite):
         if self.render_emoji:
             # Use pygame font to render emoji
             font_size = int(self.tile_size * 0.8)
-            self.font = pygame.font.Font(None, font_size)
+
+            # Try to load an emoji-capable font
+            emoji_font_paths = [
+                '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf',
+                '/System/Library/Fonts/Apple Color Emoji.ttc',  # macOS
+                'C:\\Windows\\Fonts\\seguiemj.ttf',  # Windows
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',  # Fallback
+            ]
+
+            self.font = None
+            for font_path in emoji_font_paths:
+                try:
+                    self.font = pygame.font.Font(font_path, font_size)
+                    break
+                except (FileNotFoundError, OSError):
+                    continue
+
+            # If no emoji font found, use system default
+            if self.font is None:
+                self.font = pygame.font.Font(None, font_size)
+
             text_surface = self.font.render(self.emoji, True, (255, 200, 100))
 
             # Create image surface
