@@ -5,7 +5,7 @@ Phase A5: Multiple behaviors - Wanderer, Patrol, Seeker, Flee, Combo.
 """
 
 import random
-from ai.pathfinding import get_direction_towards_target, find_nearest_walkable_tile
+from ai.pathfinding import get_direction_towards_target, find_nearest_walkable_tile, find_path_bfs
 
 
 class Behavior:
@@ -115,7 +115,12 @@ class PatrolBehavior(Behavior):
         self.current_waypoint_index = 0
 
         # Threshold for "reached waypoint" (in tiles)
-        self.waypoint_threshold = 1
+        # Set to 0 to require exact position match and prevent oscillation
+        self.waypoint_threshold = 0
+
+        # BFS path cache - stores list of directions to follow
+        self.cached_path = None
+        self.path_index = 0
 
     def _calculate_quadrant_waypoints(self):
         """
@@ -156,9 +161,27 @@ class PatrolBehavior(Behavior):
 
         return waypoints
 
+    def _is_walkable(self, x, y):
+        """
+        Check if a tile position is walkable (not a wall and in bounds).
+
+        Args:
+            x: Tile X position
+            y: Tile Y position
+
+        Returns:
+            bool: True if walkable, False otherwise
+        """
+        # Check bounds
+        if x < 0 or x >= self.maze.grid_size or y < 0 or y >= self.maze.grid_size:
+            return False
+
+        # Check if it's not a wall
+        return not self.maze.is_wall(x, y)
+
     def update(self, dt, player_pos):
         """
-        Update patrol behavior - move towards current waypoint.
+        Update patrol behavior - move towards current waypoint using BFS pathfinding.
 
         Args:
             dt: Delta time in seconds
@@ -167,25 +190,46 @@ class PatrolBehavior(Behavior):
         Returns:
             str: Direction to move ('up', 'down', 'left', 'right', or None)
         """
+        # Get current enemy position
+        enemy_x, enemy_y = self.enemy.tile_x, self.enemy.tile_y
+
         # Get current waypoint target
         target_x, target_y = self.waypoints[self.current_waypoint_index]
 
-        # Get enemy position
-        enemy_x, enemy_y = self.enemy.tile_x, self.enemy.tile_y
-
         # Check if we've reached the waypoint
-        distance = abs(enemy_x - target_x) + abs(enemy_y - target_y)  # Manhattan distance
-
-        if distance <= self.waypoint_threshold:
-            # Reached waypoint - advance to next one
+        if enemy_x == target_x and enemy_y == target_y:
+            # Reached waypoint - advance to next one and clear path cache
             self.current_waypoint_index = (self.current_waypoint_index + 1) % len(self.waypoints)
             target_x, target_y = self.waypoints[self.current_waypoint_index]
+            self.cached_path = None
+            self.path_index = 0
 
-        # Get direction towards current waypoint using greedy pathfinding
-        direction = get_direction_towards_target(
-            enemy_x, enemy_y,
-            target_x, target_y,
-            self.enemy.can_move_in_direction
-        )
+        # Check if we need to calculate a new path
+        if self.cached_path is None or self.path_index >= len(self.cached_path):
+            # Calculate new path using BFS
+            self.cached_path = find_path_bfs(
+                enemy_x, enemy_y,
+                target_x, target_y,
+                self._is_walkable
+            )
+            self.path_index = 0
 
-        return direction
+            # If no path found, stay still
+            if self.cached_path is None:
+                return None
+
+        # Follow the cached path
+        if self.path_index < len(self.cached_path):
+            direction = self.cached_path[self.path_index]
+
+            # Verify the next move is still valid before committing
+            if self.enemy.can_move_in_direction(direction):
+                self.path_index += 1
+                return direction
+            else:
+                # Path is blocked - recalculate on next update
+                self.cached_path = None
+                self.path_index = 0
+                return None
+
+        return None
