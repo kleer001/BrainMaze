@@ -1,9 +1,9 @@
 """
 Greedy pathfinding for enemy navigation.
 Phase A5: Simple, cheap movement towards targets.
+Uses deterministic position-based logic for consistent behavior.
 """
 
-import random
 from typing import Tuple, Optional
 
 
@@ -51,8 +51,10 @@ def get_direction_towards_target(
         primary = 'up' if dy < 0 else 'down'
         secondary = 'right' if dx > 0 else 'left' if dx != 0 else None
     else:
-        # Equal distance - randomly choose which to prioritize
-        if random.choice([True, False]):
+        # Equal distance - use position-based deterministic choice
+        # Use sum of coordinates to create consistent but varied behavior
+        prefer_horizontal = (current_x + current_y) % 2 == 0
+        if prefer_horizontal:
             primary = 'right' if dx > 0 else 'left'
             secondary = 'down' if dy > 0 else 'up'
         else:
@@ -75,7 +77,11 @@ def get_direction_towards_target(
         tried.add(secondary)
 
     remaining = [d for d in all_directions if d not in tried]
-    random.shuffle(remaining)  # Randomize to avoid predictable stuck patterns
+
+    # Use position-based deterministic ordering instead of random shuffle
+    # Sort by a deterministic pattern based on current position
+    position_hash = (current_x + current_y) % len(remaining)
+    remaining = remaining[position_hash:] + remaining[:position_hash]
 
     for direction in remaining:
         if can_move_callback(direction):
