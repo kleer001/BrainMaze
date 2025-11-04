@@ -74,9 +74,6 @@ class Maze:
         config = configparser.ConfigParser()
         config_path = Path('config/maze_config.ini')
 
-        if not config_path.exists():
-            config_path = Path('config/qix_config.ini')
-
         if config_path.exists():
             config.read(config_path)
         else:
