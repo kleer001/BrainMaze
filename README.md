@@ -17,6 +17,7 @@ An educational maze game where you play as a brain navigating procedurally gener
 - 🐱 **Educational Themes** - Learn facts about cats, bears, vehicles, and more
 - 🤖 **Smart AI** - Enemies with randomized behaviors and personalities
 - ✨ **Learning Moments** - Freeze and glow after each capture while you read
+- ⚡ **Blessings & Curses** - Powerups that help or hinder your chase
 - 🎨 **Procedural Mazes** - Every level is unique
 - 🏆 **Progressive Difficulty** - Scales with player skill
 
@@ -61,7 +62,7 @@ python main.py
 |-------|--------|----------|
 | **A** | 🏗️ In Progress | Player movement, maze generation, chase AI |
 | **B** | ⏳ Planned | Capture mechanics & fact display |
-| **C** | ⏳ Planned | Visual polish & learning moments |
+| **C** | ⏳ Planned | Visual polish & powerups |
 | **D** | ⏳ Planned | Level progression & themes |
 
 See [DEVELOPER_ROADMAP.md](DEVELOPER_ROADMAP.md) for detailed implementation plan.
@@ -80,7 +81,7 @@ See [DEVELOPER_ROADMAP.md](DEVELOPER_ROADMAP.md) for detailed implementation pla
 ```
 brain_maze/
 ├── main.py              # Game loop
-├── entities/            # Player, enemies
+├── entities/            # Player, enemies, powerups
 ├── systems/             # Maze, collision, effects
 ├── ui/                  # HUD, fact display
 ├── ai/                  # Behaviors, pathfinding

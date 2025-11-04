@@ -10,22 +10,24 @@
 ├── main.py                 # Game loop, state management, level transitions
 ├── config/
 │   ├── gameplay.ini        # Speeds, timers, spawn distances
-│   └── enemies.ini         # AI behavior parameters
+│   ├── enemies.ini         # AI behavior parameters
+│   └── powerups.ini        # Powerup durations and effects
 ├── entities/
 │   ├── player.py           # Player sprite, movement, collision, capture effects
-│   └── enemy.py            # Enemy base class with AI
+│   ├── enemy.py            # Enemy base class with AI
+│   └── powerup.py          # Powerup types and movement
 ├── systems/
 │   ├── maze.py             # Procedural generation (recursive backtracker)
 │   ├── collision.py        # Collision detection manager
 │   ├── effects.py          # Particles, glow effects
 │   └── game_state.py       # Level tracking, score, captured facts
 ├── ui/
-│   ├── hud.py              # Top bar (level, score)
+│   ├── hud.py              # Top bar (level, score, active effects)
 │   ├── fact_display.py     # Fact display during learning moments
 │   └── pause_menu.py       # ESC menu with controls/facts
 ├── ai/
 │   ├── behaviors.py        # Movement behaviors (wander, seek, flee, etc.)
-│   └── pathfinding.py      # A* for seekers
+│   └── pathfinding.py      # A* for seekers and powerup movement
 ├── assets/
 │   └── data/
 │       ├── cats.json       # Cat facts
@@ -303,7 +305,7 @@
 
 ---
 
-### Phase C: Visual Polish & Learning Moments
+### Phase C: Visual Polish & Powerups
 
 #### **C1: Enhanced Capture Effects**
 **Goal:** Make captures feel rewarding and exciting
@@ -369,6 +371,95 @@
 - Animations are smooth
 - Text wraps correctly
 - Different fact lengths display well
+
+
+---
+
+#### **C3: Powerup Spawning & Movement**
+**Goal:** Powerups travel through maze offering blessings and curses
+
+**Tasks:**
+1. Create `Powerup` class
+2. Implement random-weighted pathfinding (end → start)
+3. Spawn powerups at end point periodically
+4. Update position along path
+5. Despawn when reaching start
+6. Render as emoji (⚡ for speed, 🐌 for slow, ❄️ for freeze, etc.)
+
+**Files:**
+- Create `entities/powerup.py`
+- Update `ai/pathfinding.py` (random weighting for powerup movement)
+
+**Configuration:**
+- `config/powerups.ini`:
+  ```ini
+  [Spawning]
+  spawn_interval = 15.0
+  max_active = 2
+  path_randomness = 0.3  # How much to randomize the path
+  ```
+
+**Testing:**
+- Powerups spawn at end point
+- Follow valid paths through maze
+- Despawn correctly when reaching start
+- Multiple powerups don't overlap
+- Movement looks natural
+
+
+---
+
+#### **C4: Powerup Types & Effects**
+**Goal:** Blessings and curses that affect gameplay
+
+**Tasks:**
+1. Implement powerup effects:
+   - **Speed Boost** (+50% speed, 10s) ⚡
+   - **Slowdown** (-40% speed, 10s) 🐌
+   - **Enemy Freeze** (enemies stop moving, 5s) ❄️
+   - **Enemy Speed Up** (enemies move faster, 10s) 🔥
+   - **Ghost Mode** (pass through enemies, 8s) 👻
+2. Handle effect stacking and conflicts
+3. Display active effects in HUD
+4. Add visual indicators on player when affected
+5. Balance blessing/curse probabilities
+
+**Files:**
+- Update `entities/powerup.py` (all types and effects)
+- Update `entities/player.py` (effect application)
+- Update `entities/enemy.py` (freeze and speed effects)
+- Update `ui/hud.py` (active effects display)
+
+**Configuration:**
+- `config/powerups.ini`:
+  ```ini
+  [Effects]
+  speed_boost_multiplier = 1.5
+  speed_boost_duration = 10.0
+  slowdown_multiplier = 0.6
+  slowdown_duration = 10.0
+  enemy_freeze_duration = 5.0
+  enemy_speedup_multiplier = 1.4
+  enemy_speedup_duration = 10.0
+  ghost_mode_duration = 8.0
+
+  [Types]
+  # Weighted spawn chances
+  speed_boost_weight = 25
+  slowdown_weight = 15
+  enemy_freeze_weight = 20
+  enemy_speedup_weight = 15
+  ghost_mode_weight = 25
+  ```
+
+**Testing:**
+- All powerup types work correctly
+- Effects apply and expire properly
+- Speed changes are noticeable but balanced
+- Enemy freeze stops all enemy movement
+- Ghost mode allows passing through enemies without capture
+- HUD shows current active effects
+- Conflicting effects handle gracefully (e.g., speed boost + slowdown)
 
 
 ---
