@@ -30,8 +30,9 @@ class BrainMaze:
         
         # Load configuration
         self.config = configparser.ConfigParser()
-        config_path = Path('config/gameplay.ini')
-        enemies_config_path = Path('config/enemies.ini')
+        script_dir = Path(__file__).parent
+        config_path = script_dir / 'config' / 'gameplay.ini'
+        enemies_config_path = script_dir / 'config' / 'enemies.ini'
 
         if not config_path.exists():
             print(f"Error: Config file not found at {config_path}")
