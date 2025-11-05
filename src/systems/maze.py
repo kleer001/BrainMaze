@@ -3,6 +3,7 @@ Maze generation system using corridor-carving algorithm with perfect symmetry.
 """
 
 import random
+import time
 import pygame
 import configparser
 from pathlib import Path
@@ -67,6 +68,10 @@ class Maze:
         self.corridor_len_max = config.getint('Generation', 'corridor_length_max')
         self.generation_attempts = config.getint('Generation', 'max_attempts')
 
+        # Debug settings
+        self.debug_mode = config.getboolean('Debug', 'debug_mode')
+        self.debug_delay = config.getfloat('Debug', 'debug_delay')
+
         self._generate()
 
     def _load_config(self):
@@ -84,6 +89,10 @@ class Maze:
                 'corridor_length_min': '3',
                 'corridor_length_max': '8',
                 'max_attempts': '5'
+            }
+            config['Debug'] = {
+                'debug_mode': 'false',
+                'debug_delay': '0.1'
             }
 
         return config
@@ -114,6 +123,10 @@ class Maze:
         for cy in range(y, min(y + height, self.grid_size)):
             for cx in range(x, min(x + width, self.grid_size)):
                 grid[cy][cx] = INTERNAL_CORRIDOR
+
+                # Debug mode: add delay to visualize chamber carving
+                if self.debug_mode:
+                    time.sleep(self.debug_delay)
 
     def _mirror_to_right(self, grid):
         """Mirror left half to right half across vertical axis."""
@@ -236,6 +249,10 @@ class Maze:
             if grid[y][x] == INTERNAL_WALL:
                 grid[y][x] = INTERNAL_CORRIDOR
                 carved += 1
+
+                # Debug mode: add delay to visualize corridor carving
+                if self.debug_mode:
+                    time.sleep(self.debug_delay)
             else:
                 break
 
