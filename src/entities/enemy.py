@@ -6,6 +6,7 @@ Phase A5: Multiple behaviors - randomly assigned on spawn.
 
 import pygame
 import random
+from pygame_emojis import load_emoji
 from ai.behaviors import WandererBehavior, PatrolBehavior
 
 
@@ -58,18 +59,17 @@ class Enemy(pygame.sprite.Sprite):
 
         # Create surface for rendering
         if self.render_emoji:
-            # Use pygame font to render emoji
-            font_size = int(self.tile_size * 0.8)
-            self.font = pygame.font.Font(None, font_size)
-            text_surface = self.font.render(self.emoji, True, (255, 200, 100))
+            # Use pygame-emojis to render emoji with proper color support
+            emoji_size = int(self.tile_size * 0.8)
+            emoji_surface = load_emoji(self.emoji, (emoji_size, emoji_size))
 
             # Create image surface
             self.image = pygame.Surface((self.tile_size - 4, self.tile_size - 4), pygame.SRCALPHA)
             self.image.fill((0, 0, 0, 0))  # Transparent background
 
             # Center the emoji on the surface
-            text_rect = text_surface.get_rect(center=(self.image.get_width() // 2, self.image.get_height() // 2))
-            self.image.blit(text_surface, text_rect)
+            emoji_rect = emoji_surface.get_rect(center=(self.image.get_width() // 2, self.image.get_height() // 2))
+            self.image.blit(emoji_surface, emoji_rect)
         else:
             # Fallback to colored rectangle
             self.image = pygame.Surface((self.tile_size - 4, self.tile_size - 4))
