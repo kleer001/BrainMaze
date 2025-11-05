@@ -1,354 +1,232 @@
-"""
-Player entity with buffered input and corner forgiveness.
-Phase A4: Movement with wall collision detection and invincibility system.
-"""
-
 import pygame
 import math
+from entities.grid_entity import GridEntity
+from utils.vector2 import Vector2
+from utils.direction import UP, DOWN, LEFT, RIGHT, apply_direction
 
+BRIGHTNESS_AMPLITUDE = 0.4
+MIN_BRIGHTNESS = 0.6
+MAX_BRIGHTNESS = 1.4
 
-class Vector2:
-    """Simple 2D vector class for position and velocity."""
-    
-    def __init__(self, x, y):
-        self.x = float(x)
-        self.y = float(y)
-    
-    def __add__(self, other):
-        return Vector2(self.x + other.x, self.y + other.y)
-    
-    def __mul__(self, scalar):
-        return Vector2(self.x * scalar, self.y * scalar)
-    
-    def __rmul__(self, scalar):
-        return self.__mul__(scalar)
-
-
-class Player(pygame.sprite.Sprite):
-    """
-    Player sprite with continuous movement and industry-standard input buffering.
-    """
-    
+class Player(GridEntity):
     def __init__(self, x, y, config, collision_manager):
-        """
-        Initialize player at grid position (x, y).
-
-        Args:
-            x: Grid X position (tile coordinates)
-            y: Grid Y position (tile coordinates)
-            config: ConfigParser object with gameplay settings
-            collision_manager: CollisionManager instance for wall detection
-        """
-        super().__init__()
-
-        # Store collision manager
-        self.collision_manager = collision_manager
-        
-        # Load configuration
         self.tile_size = config.getint('Maze', 'tile_size')
+        super().__init__(x, y, self.tile_size)
+
+        self.collision_manager = collision_manager
+        self._load_config(config)
+        self._init_visual()
+        self._init_movement()
+        self._init_input_buffer()
+        self._init_invincibility()
+        self._store_spawn(x, y)
+
+    def _load_config(self, config):
         self.base_speed = config.getfloat('Player', 'base_speed')
         self.input_buffer_duration = config.getfloat('Player', 'input_buffer_duration')
         self.corner_forgiveness = config.getint('Player', 'corner_forgiveness')
         self.invincibility_duration = config.getfloat('Player', 'invincibility_duration')
         self.pulse_frequency = config.getfloat('Effects', 'invincibility_pulse_frequency')
-
-        # Convert speed from tiles/second to pixels/second
         self.speed_pixels_per_second = self.base_speed * self.tile_size
-
-        # Create sprite (colored rectangle for now)
-        self.image = pygame.Surface((self.tile_size - 4, self.tile_size - 4))
         self.base_color = tuple(map(int, config.get('Colors', 'player').split(',')))
-        self.image.fill(self.base_color)
 
-        # Store spawn position for respawn
-        self.spawn_x = x
-        self.spawn_y = y
-        
-        # Position (center of tile in pixel coordinates)
+    def _init_visual(self):
+        self.image = pygame.Surface((self.tile_size - 4, self.tile_size - 4))
+        self.image.fill(self.base_color)
         self.rect = self.image.get_rect()
-        self.rect.center = (
-            x * self.tile_size + self.tile_size // 2,
-            y * self.tile_size + self.tile_size // 2
-        )
-        
-        # Use float position for smooth movement
+        self._position_at_tile(*self.get_tile_position())
+
+    def _init_movement(self):
         self.pos = Vector2(self.rect.centerx, self.rect.centery)
-        
-        # Movement state
         self.velocity = Vector2(0, 0)
-        self.current_direction = None  # 'up', 'down', 'left', 'right', or None
-        self.is_moving = False  # True when committed to a tile movement
-        self.target_pos = None  # Target tile center we're moving toward
-        
-        # Input buffering
+        self.current_direction = None
+        self.is_moving = False
+        self.target_pos = None
+
+    def _init_input_buffer(self):
         self.buffered_direction = None
         self.buffer_timer = 0.0
 
-        # Invincibility state
+    def _init_invincibility(self):
         self.is_invincible = False
         self.invincibility_timer = 0.0
         self.pulse_timer = 0.0
-        
+
+    def _store_spawn(self, x, y):
+        self.spawn_x = x
+        self.spawn_y = y
+
     def handle_input(self, keys):
-        """
-        Process keyboard input with buffering.
-        Only accepts new direction when not currently committed to a movement.
-        
-        Args:
-            keys: pygame.key.get_pressed() result
-        """
-        # Import key constants
         from pygame import K_w, K_s, K_a, K_d, K_UP, K_DOWN, K_LEFT, K_RIGHT
-        
-        # Determine desired direction from input
-        desired_direction = None
-        
-        if keys[K_w] or keys[K_UP]:
-            desired_direction = 'up'
-        elif keys[K_s] or keys[K_DOWN]:
-            desired_direction = 'down'
-        elif keys[K_a] or keys[K_LEFT]:
-            desired_direction = 'left'
-        elif keys[K_d] or keys[K_RIGHT]:
-            desired_direction = 'right'
-        
-        # If we're currently moving, buffer the new input
+
+        desired_direction = self._get_desired_direction(keys, {
+            UP: [K_w, K_UP],
+            DOWN: [K_s, K_DOWN],
+            LEFT: [K_a, K_LEFT],
+            RIGHT: [K_d, K_RIGHT]
+        })
+
         if self.is_moving and desired_direction and desired_direction != self.current_direction:
-            self.buffered_direction = desired_direction
-            self.buffer_timer = self.input_buffer_duration
-        
-        # If we're not moving and have input, start moving
+            self._buffer_input(desired_direction)
         elif not self.is_moving and desired_direction:
-            if self._can_move_in_direction(desired_direction):
-                self._start_movement(desired_direction)
-                self.buffered_direction = None
-                self.buffer_timer = 0.0
-            else:
-                # Can't move that way, buffer it
-                self.buffered_direction = desired_direction
-                self.buffer_timer = self.input_buffer_duration
-    
+            self._try_start_movement_or_buffer(desired_direction)
+
+    def _get_desired_direction(self, keys, key_map):
+        for direction, key_list in key_map.items():
+            if any(keys[k] for k in key_list):
+                return direction
+        return None
+
+    def _buffer_input(self, direction):
+        self.buffered_direction = direction
+        self.buffer_timer = self.input_buffer_duration
+
+    def _try_start_movement_or_buffer(self, direction):
+        if self._can_move_in_direction(direction):
+            self._start_movement(direction)
+            self._clear_buffer()
+        else:
+            self._buffer_input(direction)
+
+    def _clear_buffer(self):
+        self.buffered_direction = None
+        self.buffer_timer = 0.0
+
     def update(self, dt):
-        """
-        Update player position with grid-snapped movement.
-        Player commits to full tile movements.
+        self._update_invincibility(dt)
 
-        Args:
-            dt: Delta time in seconds
-        """
-        # Update invincibility timer
-        if self.is_invincible:
-            self.invincibility_timer -= dt
-            self.pulse_timer += dt
-
-            if self.invincibility_timer <= 0:
-                self.is_invincible = False
-                self.invincibility_timer = 0.0
-                # Reset to base color
-                self.image.fill(self.base_color)
-            else:
-                # Apply pulsing color effect using sine wave
-                pulse_value = math.sin(self.pulse_timer * 2 * math.pi / self.pulse_frequency)
-                # Map sine wave (-1 to 1) to brightness multiplier (0.6 to 1.4)
-                brightness = 1.0 + (pulse_value * 0.4)
-
-                # Apply brightness to base color
-                pulsed_color = tuple(
-                    min(255, int(c * brightness)) for c in self.base_color
-                )
-                self.image.fill(pulsed_color)
-
-        # If we're moving toward a target
         if self.is_moving and self.target_pos:
-            # Move toward target
-            self.pos.x += self.velocity.x * dt
-            self.pos.y += self.velocity.y * dt
-            
-            # Check if we've reached or passed the target
-            reached = False
-            if self.current_direction == 'up' and self.pos.y <= self.target_pos.y:
-                reached = True
-            elif self.current_direction == 'down' and self.pos.y >= self.target_pos.y:
-                reached = True
-            elif self.current_direction == 'left' and self.pos.x <= self.target_pos.x:
-                reached = True
-            elif self.current_direction == 'right' and self.pos.x >= self.target_pos.x:
-                reached = True
-            
-            # Snap to target when reached
-            if reached:
-                self.pos.x = self.target_pos.x
-                self.pos.y = self.target_pos.y
-                self.is_moving = False
-                self.velocity = Vector2(0, 0)
-                
-                # Try to execute buffered input immediately
-                if self.buffered_direction and self._can_move_in_direction(self.buffered_direction):
-                    self._start_movement(self.buffered_direction)
-                    self.buffered_direction = None
-                    self.buffer_timer = 0.0
-        
-        # Not moving, check buffered input timer
+            self._update_movement(dt)
         elif self.buffered_direction and self.buffer_timer > 0:
-            self.buffer_timer -= dt
-            
-            if self._can_move_in_direction(self.buffered_direction):
-                self._start_movement(self.buffered_direction)
-                self.buffered_direction = None
-                self.buffer_timer = 0.0
-        
-        # Clear expired buffer
+            self._update_buffered_input(dt)
+
         if self.buffer_timer <= 0:
             self.buffered_direction = None
-        
-        # Update rect position (for rendering and collision)
+
         self.rect.center = (int(self.pos.x), int(self.pos.y))
-    
+
+    def _update_invincibility(self, dt):
+        if not self.is_invincible:
+            return
+
+        self.invincibility_timer -= dt
+        self.pulse_timer += dt
+
+        if self.invincibility_timer <= 0:
+            self._deactivate_invincibility()
+        else:
+            self._apply_invincibility_visual()
+
+    def _deactivate_invincibility(self):
+        self.is_invincible = False
+        self.invincibility_timer = 0.0
+        self.image.fill(self.base_color)
+
+    def _apply_invincibility_visual(self):
+        pulse_value = math.sin(self.pulse_timer * 2 * math.pi / self.pulse_frequency)
+        brightness = 1.0 + (pulse_value * BRIGHTNESS_AMPLITUDE)
+        pulsed_color = tuple(min(255, int(c * brightness)) for c in self.base_color)
+        self.image.fill(pulsed_color)
+
+    def _update_movement(self, dt):
+        self.pos.x += self.velocity.x * dt
+        self.pos.y += self.velocity.y * dt
+
+        if self._has_reached_target():
+            self._snap_to_target()
+            self._stop_movement()
+
+            if self.buffered_direction and self._can_move_in_direction(self.buffered_direction):
+                self._start_movement(self.buffered_direction)
+                self._clear_buffer()
+
+    def _has_reached_target(self):
+        if self.current_direction == UP:
+            return self.pos.y <= self.target_pos.y
+        if self.current_direction == DOWN:
+            return self.pos.y >= self.target_pos.y
+        if self.current_direction == LEFT:
+            return self.pos.x <= self.target_pos.x
+        if self.current_direction == RIGHT:
+            return self.pos.x >= self.target_pos.x
+        return False
+
+    def _snap_to_target(self):
+        self.pos.x = self.target_pos.x
+        self.pos.y = self.target_pos.y
+
+    def _stop_movement(self):
+        self.is_moving = False
+        self.velocity = Vector2(0, 0)
+
+    def _update_buffered_input(self, dt):
+        self.buffer_timer -= dt
+
+        if self._can_move_in_direction(self.buffered_direction):
+            self._start_movement(self.buffered_direction)
+            self._clear_buffer()
+
     def _can_move_in_direction(self, direction):
-        """
-        Check if movement in direction is valid (wall collision check).
-        Includes corner forgiveness for smooth movement.
-
-        Args:
-            direction: 'up', 'down', 'left', or 'right'
-
-        Returns:
-            bool: True if movement is valid
-        """
-        # Get current tile position
         current_tile_x, current_tile_y = self.get_tile_position()
+        target_tile_x, target_tile_y = apply_direction(current_tile_x, current_tile_y, direction)
 
-        # Calculate target tile position
-        target_tile_x, target_tile_y = current_tile_x, current_tile_y
-        if direction == 'up':
-            target_tile_y -= 1
-        elif direction == 'down':
-            target_tile_y += 1
-        elif direction == 'left':
-            target_tile_x -= 1
-        elif direction == 'right':
-            target_tile_x += 1
-
-        # Check basic wall collision
-        can_move = self.collision_manager.can_move_to_tile(
-            current_tile_x, current_tile_y,
-            target_tile_x, target_tile_y
-        )
-
-        if can_move:
+        if self.collision_manager.can_move_to_tile(current_tile_x, current_tile_y, target_tile_x, target_tile_y):
             return True
 
-        # If basic check fails, try corner forgiveness
-        can_move_cf, adj_x, adj_y = self.collision_manager.check_corner_forgiveness(
+        return self._try_corner_forgiveness(direction, current_tile_x, current_tile_y, target_tile_x, target_tile_y)
+
+    def _try_corner_forgiveness(self, direction, current_tile_x, current_tile_y, target_tile_x, target_tile_y):
+        can_move, adj_x, adj_y = self.collision_manager.check_corner_forgiveness(
             self.pos.x, self.pos.y, direction
         )
 
-        if can_move_cf:
-            # Apply corner forgiveness adjustment (snap to center)
-            self.pos.x = adj_x
-            self.pos.y = adj_y
+        if not can_move:
+            return False
 
-            # Recalculate tile positions after snapping to center
-            current_tile_x, current_tile_y = self.get_tile_position()
+        self.pos.x = adj_x
+        self.pos.y = adj_y
 
-            # Recalculate target tile position
-            target_tile_x, target_tile_y = current_tile_x, current_tile_y
-            if direction == 'up':
-                target_tile_y -= 1
-            elif direction == 'down':
-                target_tile_y += 1
-            elif direction == 'left':
-                target_tile_x -= 1
-            elif direction == 'right':
-                target_tile_x += 1
+        current_tile_x, current_tile_y = self.get_tile_position()
+        target_tile_x, target_tile_y = apply_direction(current_tile_x, current_tile_y, direction)
 
-            # Recheck if movement is valid after snapping
-            return self.collision_manager.can_move_to_tile(
-                current_tile_x, current_tile_y,
-                target_tile_x, target_tile_y
-            )
+        return self.collision_manager.can_move_to_tile(current_tile_x, current_tile_y, target_tile_x, target_tile_y)
 
-        return False
-    
     def _start_movement(self, direction):
-        """
-        Start movement in a direction toward the next tile center.
-        
-        Args:
-            direction: 'up', 'down', 'left', or 'right'
-        """
         self.current_direction = direction
         self.is_moving = True
-        
-        # Calculate target position (center of next tile)
-        current_tile_x, current_tile_y = self.get_tile_position()
-        
-        if direction == 'up':
-            target_tile_y = current_tile_y - 1
-            target_tile_x = current_tile_x
-            self.velocity = Vector2(0, -self.speed_pixels_per_second)
-        elif direction == 'down':
-            target_tile_y = current_tile_y + 1
-            target_tile_x = current_tile_x
-            self.velocity = Vector2(0, self.speed_pixels_per_second)
-        elif direction == 'left':
-            target_tile_x = current_tile_x - 1
-            target_tile_y = current_tile_y
-            self.velocity = Vector2(-self.speed_pixels_per_second, 0)
-        elif direction == 'right':
-            target_tile_x = current_tile_x + 1
-            target_tile_y = current_tile_y
-            self.velocity = Vector2(self.speed_pixels_per_second, 0)
-        
-        # Calculate pixel position of target tile center
-        self.target_pos = Vector2(
-            target_tile_x * self.tile_size + self.tile_size // 2,
-            target_tile_y * self.tile_size + self.tile_size // 2
-        )
-    
-    def get_tile_position(self):
-        """
-        Get current position in tile coordinates.
 
-        Returns:
-            tuple: (tile_x, tile_y)
-        """
-        tile_x = int(self.pos.x // self.tile_size)
-        tile_y = int(self.pos.y // self.tile_size)
-        return (tile_x, tile_y)
+        current_tile_x, current_tile_y = self.get_tile_position()
+        target_tile_x, target_tile_y = apply_direction(current_tile_x, current_tile_y, direction)
+
+        self.velocity = self._calculate_velocity(direction)
+        target_center_x, target_center_y = self.tile_utils.tile_to_pixel_center(target_tile_x, target_tile_y)
+        self.target_pos = Vector2(target_center_x, target_center_y)
+
+    def _calculate_velocity(self, direction):
+        if direction == UP:
+            return Vector2(0, -self.speed_pixels_per_second)
+        if direction == DOWN:
+            return Vector2(0, self.speed_pixels_per_second)
+        if direction == LEFT:
+            return Vector2(-self.speed_pixels_per_second, 0)
+        if direction == RIGHT:
+            return Vector2(self.speed_pixels_per_second, 0)
+        return Vector2(0, 0)
 
     def respawn(self):
-        """
-        Respawn player at spawn position with invincibility.
-        Called when player collides with enemy.
-        """
-        # Reset position to spawn
-        spawn_pixel_x = self.spawn_x * self.tile_size + self.tile_size // 2
-        spawn_pixel_y = self.spawn_y * self.tile_size + self.tile_size // 2
+        spawn_pixel_x, spawn_pixel_y = self.tile_utils.tile_to_pixel_center(self.spawn_x, self.spawn_y)
         self.pos.x = spawn_pixel_x
         self.pos.y = spawn_pixel_y
         self.rect.center = (int(self.pos.x), int(self.pos.y))
 
-        # Stop movement
-        self.velocity = Vector2(0, 0)
-        self.is_moving = False
+        self._stop_movement()
         self.target_pos = None
         self.current_direction = None
+        self._clear_buffer()
 
-        # Clear buffered input
-        self.buffered_direction = None
-        self.buffer_timer = 0.0
-
-        # Activate invincibility
         self.is_invincible = True
         self.invincibility_timer = self.invincibility_duration
         self.pulse_timer = 0.0
 
     def can_take_damage(self):
-        """
-        Check if player can take damage (not invincible).
-
-        Returns:
-            bool: True if player can take damage
-        """
         return not self.is_invincible
