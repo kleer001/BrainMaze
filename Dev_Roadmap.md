@@ -13,22 +13,21 @@
 │   ├── enemies.ini         # AI behavior parameters
 │   └── powerups.ini        # Powerup durations and effects
 ├── entities/
-│   ├── player.py           # Player sprite, movement, collision
+│   ├── player.py           # Player sprite, movement, collision, capture effects
 │   ├── enemy.py            # Enemy base class with AI
-│   ├── mine.py             # Mine sprite and trigger logic
 │   └── powerup.py          # Powerup types and movement
 ├── systems/
 │   ├── maze.py             # Procedural generation (recursive backtracker)
 │   ├── collision.py        # Collision detection manager
-│   ├── effects.py          # Screen shake, particles
-│   └── game_state.py       # Level tracking, inventory, score
+│   ├── effects.py          # Particles, glow effects
+│   └── game_state.py       # Level tracking, score, captured facts
 ├── ui/
-│   ├── hud.py              # Top bar (mines, level, shield)
-│   ├── trivia_panel.py     # Bottom fact display
+│   ├── hud.py              # Top bar (level, score, active effects)
+│   ├── fact_display.py     # Fact display during learning moments
 │   └── pause_menu.py       # ESC menu with controls/facts
 ├── ai/
 │   ├── behaviors.py        # Movement behaviors (wander, seek, flee, etc.)
-│   └── pathfinding.py      # A* for powerup movement
+│   └── pathfinding.py      # A* for seekers and powerup movement
 ├── assets/
 │   └── data/
 │       ├── cats.json       # Cat facts
@@ -44,7 +43,7 @@
 
 ## Development Phases
 
-### Phase A: Core Movement & Collision
+### Phase A: Core Movement & Chase Mechanics
 
 #### **A1: Player Movement (No Walls)**
 **Goal:** Get player sprite moving smoothly on screen
@@ -137,45 +136,35 @@
 
 ---
 
-#### **A4: Player-Enemy Collision & Respawn System**
-**Goal:** Collision triggers respawn with invincibility
+#### **A4: Player-Enemy Collision & Basic Capture**
+**Goal:** Collision captures enemy (basic version, polish comes later)
 
 **Tasks:**
 1. Implement collision detection between player and enemies (every 4 frames for economy)
-2. Create screen flash effect (20% red overlay, 0.4s duration, configurable)
-3. Respawn player at start position
-4. Implement 5-second invincibility with pulsing color effect
-5. Add basic mine counter to GameState (prep for B1)
-6. Reset mine counter to 3 on respawn
+2. Remove captured enemy from game
+3. Add basic score tracking to GameState
+4. Increment score on capture
+5. Add simple visual feedback (brief flash)
 
 **Files:**
-- `systems/effects.py` (screen flash)
-- `systems/game_state.py` (mine counter)
-- Update `entities/player.py` (invincibility, pulsing effect)
-- Update `main.py` (collision checking)
+- `systems/game_state.py` (score tracking, captured facts list)
+- Update `entities/player.py` (capture detection)
+- Update `main.py` (collision checking, enemy removal)
 
 **Configuration:**
 - `config/gameplay.ini`:
   ```ini
-  [Effects]
-  screen_flash_duration = 0.4
-  screen_flash_red_intensity = 0.2
-  invincibility_duration = 5.0
+  [Capture]
   collision_check_interval = 4  # Check every N frames
-
-  [Mines]
-  max_inventory = 3
   ```
 
 **Testing:**
 - Collision detection is accurate (checked every 4 frames)
-- Screen flash displays correctly on collision
-- Player respawns at start position
-- 5-second invincibility with pulsing color visual
-- Invincibility prevents further collision damage
-- Mine counter resets to 3 on respawn
+- Enemy is removed on collision
+- Score increments correctly
+- Basic visual feedback displays
 
-**Note:** Fact display is deferred to Phase B2 (mine-enemy collision triggers facts)
+**Note:** Fact display, freeze effect, and glow are deferred to Phase B
 
 
 ---
@@ -216,89 +205,190 @@
 
 ---
 
-### Phase B: Mines
+### Phase B: Capture Mechanics & Fact Display
 
-#### **B1: Mine Placement**
-**Goal:** Player can place mines on M key press
+#### **B1: Fact Display on Capture**
+**Goal:** Display educational facts when enemies are captured
 
 **Tasks:**
-1. Create `Mine` class
-2. Extend `GameState` with mine placement logic (mine counter created in A4)
-3. Handle M key input
-4. Place mine at player's current position
-5. Add glow pulse effect on placement
-6. Render mine as 💭 emoji
+1. Create fact display UI (center of screen, readable text)
+2. Load facts from JSON file (`cats.json`)
+3. Display fact when player captures enemy
+4. Keep fact visible for reading time
+5. Associate each enemy with a specific fact
 
 **Files:**
-- `entities/mine.py`
-- Update `systems/game_state.py` (extend with placement logic)
-- Update `ui/hud.py` to show mine count
-
-**Note:** Mine counter (inventory) was created in Phase A4, this phase adds actual mine entities
+- Create `ui/fact_display.py` (fact display panel)
+- Create `assets/data/cats.json` (cat facts)
+- Update `main.py` (integrate fact display)
+- Update `entities/enemy.py` (associate facts with enemies)
 
 **Configuration:**
 - `config/gameplay.ini`:
   ```ini
-  [Mines]
-  max_inventory = 3
-  glow_duration = 0.3
+  [Facts]
+  display_duration = 3.0  # How long to show fact
   ```
 
 **Testing:**
-- M key places mine correctly
-- Mine count decreases in HUD
-- Cannot place more than 3 mines
-- Glow effect displays on placement
+- Facts load correctly from JSON
+- Fact displays on enemy capture
+- Text is readable and centered
+- Fact persists for configured duration
 
 
 ---
 
-#### **B2: Mine-Enemy Collision & Fact Display**
-**Goal:** Mines eliminate enemies and display facts
+#### **B2: Freeze and Glow Effect**
+**Goal:** Player freezes for 1 second and glows after capture
 
 **Tasks:**
-1. Create trivia panel UI (bottom of screen, grid square height, full maze width)
-2. Implement mine-enemy collision detection
-3. Remove both mine and enemy on collision
-4. Return mine to inventory
-5. Load facts from JSON file (`cats.json`)
-6. Display fact in trivia panel (black background, white text, persistent)
-7. Spawn new enemy if count < 5
+1. Implement player freeze state (disable movement)
+2. Add glow/pulsing effect to player sprite
+3. Add flickering animation during freeze
+4. Time freeze to align with fact reading (1 second)
+5. Resume normal movement after freeze ends
 
 **Files:**
-- Create `ui/trivia_panel.py` (fact display panel)
-- Update `systems/collision.py` (mine-enemy collision)
-- Create `assets/data/cats.json` (cat facts)
-- Update `main.py` (integrate trivia panel)
+- Update `entities/player.py` (freeze state, glow effect, flickering)
+- Update `systems/effects.py` (glow/pulse particles)
+
+**Configuration:**
+- `config/gameplay.ini`:
+  ```ini
+  [Capture]
+  freeze_duration = 1.0
+  glow_intensity = 0.8
+  flicker_frequency = 10  # Flickers per second
+  ```
 
 **Testing:**
-- Trivia panel displays at bottom correctly
-- Mine-enemy collision triggers correctly
-- Mine returns to inventory
-- Fact displays from JSON in panel
-- Panel persists with current fact
-- New enemy spawns at correct distance
-- Level completes when all enemies eliminated
+- Player freezes immediately on capture
+- Glow effect is visible and attractive
+- Flickering animation looks good
+- Movement resumes after exactly 1 second
+- Freeze gives time to start reading fact
 
 
 ---
 
-### Phase C: Powerups
+#### **B3: Enemy Respawning**
+**Goal:** Keep the chase going by spawning new enemies
 
-#### **C1: Powerup Spawning & Movement**
-**Goal:** Powerups travel from end to start
+**Tasks:**
+1. Implement enemy respawn system
+2. Spawn new enemy after capture
+3. Maintain max enemy count on board
+4. Randomize spawn locations (at safe distance)
+5. Track total enemies captured per level
+
+**Files:**
+- Update `systems/game_state.py` (respawn logic, capture tracking)
+- Update `main.py` (enemy spawning)
+
+**Configuration:**
+- `config/enemies.ini`:
+  ```ini
+  [Spawning]
+  spawn_distance_from_player = 12
+  max_enemies_on_board = 5
+  enemies_per_level = 10  # Total to capture per level
+  ```
+
+**Testing:**
+- New enemy spawns after capture
+- Spawns at safe distance from player
+- Max enemy count is respected
+- Level completes after capturing all enemies
+- Different enemy types spawn with variety
+
+
+---
+
+### Phase C: Visual Polish & Powerups
+
+#### **C1: Enhanced Capture Effects**
+**Goal:** Make captures feel rewarding and exciting
+
+**Tasks:**
+1. Implement particle burst on capture
+2. Add screen flash effect (subtle, colorful)
+3. Create capture sound effect hook
+4. Polish glow effect with gradient
+5. Add smooth transitions between states
+
+**Files:**
+- Update `systems/effects.py` (particles, screen effects)
+- Update `entities/player.py` (smooth state transitions)
+
+**Configuration:**
+- `config/gameplay.ini`:
+  ```ini
+  [CaptureEffects]
+  particle_count = 20
+  particle_lifetime = 1.0
+  screen_flash_color = 255,255,150  # Warm yellow
+  screen_flash_intensity = 0.15
+  flash_duration = 0.2
+  ```
+
+**Testing:**
+- Particle burst looks exciting
+- Screen flash is noticeable but not jarring
+- All effects sync with capture moment
+- Transitions feel smooth
+
+
+---
+
+#### **C2: Fact Display Polish**
+**Goal:** Make facts easy and enjoyable to read
+
+**Tasks:**
+1. Design attractive fact panel with border
+2. Add background blur/overlay behind fact
+3. Implement text wrapping and formatting
+4. Add fact source attribution if desired
+5. Create fade-in/fade-out animations
+
+**Files:**
+- Update `ui/fact_display.py` (panel design, animations)
+
+**Configuration:**
+- `config/gameplay.ini`:
+  ```ini
+  [FactDisplay]
+  panel_width = 600
+  panel_padding = 20
+  background_alpha = 0.9
+  text_size = 18
+  fade_duration = 0.3
+  ```
+
+**Testing:**
+- Facts are easy to read
+- Panel doesn't obscure important game elements
+- Animations are smooth
+- Text wraps correctly
+- Different fact lengths display well
+
+
+---
+
+#### **C3: Powerup Spawning & Movement**
+**Goal:** Powerups travel through maze offering blessings and curses
 
 **Tasks:**
 1. Create `Powerup` class
 2. Implement random-weighted pathfinding (end → start)
-3. Spawn powerup at end point
+3. Spawn powerups at end point periodically
 4. Update position along path
 5. Despawn when reaching start
-6. Render as emoji (⚡ for speed, 💭 for mine, etc.)
+6. Render as emoji (⚡ for speed, 🐌 for slow, ❄️ for freeze, etc.)
 
 **Files:**
-- `entities/powerup.py`
-- Update `ai/pathfinding.py` (random weighting)
+- Create `entities/powerup.py`
+- Update `ai/pathfinding.py` (random weighting for powerup movement)
 
 **Configuration:**
 - `config/powerups.ini`:
@@ -306,35 +396,39 @@
   [Spawning]
   spawn_interval = 15.0
   max_active = 2
+  path_randomness = 0.3  # How much to randomize the path
   ```
 
 **Testing:**
-- Powerups spawn at end
-- Follow valid paths to start
-- Despawn correctly
+- Powerups spawn at end point
+- Follow valid paths through maze
+- Despawn correctly when reaching start
 - Multiple powerups don't overlap
+- Movement looks natural
 
 
 ---
 
-#### **C2: Powerup Types & Effects**
-**Goal:** All powerup types functional
+#### **C4: Powerup Types & Effects**
+**Goal:** Blessings and curses that affect gameplay
 
 **Tasks:**
 1. Implement powerup effects:
-   - Speed Boost (+50%, 10s)
-   - Extra Mine (+1 permanent)
-   - Shield (1-hit protection, glow)
-   - Slowdown (-30%, 10s/permanent)
-   - Mine Loss (-1 permanent)
-2. Handle effect stacking
-3. Display shield glow on player
-4. Update HUD to show active effects
+   - **Speed Boost** (+50% speed, 10s) ⚡
+   - **Slowdown** (-40% speed, 10s) 🐌
+   - **Enemy Freeze** (enemies stop moving, 5s) ❄️
+   - **Enemy Speed Up** (enemies move faster, 10s) 🔥
+   - **Ghost Mode** (pass through enemies, 8s) 👻
+2. Handle effect stacking and conflicts
+3. Display active effects in HUD
+4. Add visual indicators on player when affected
+5. Balance blessing/curse probabilities
 
 **Files:**
-- Update `entities/powerup.py`
+- Update `entities/powerup.py` (all types and effects)
 - Update `entities/player.py` (effect application)
-- Update `ui/hud.py` (shield icon)
+- Update `entities/enemy.py` (freeze and speed effects)
+- Update `ui/hud.py` (active effects display)
 
 **Configuration:**
 - `config/powerups.ini`:
@@ -342,62 +436,83 @@
   [Effects]
   speed_boost_multiplier = 1.5
   speed_boost_duration = 10.0
-  slowdown_multiplier = 0.7
+  slowdown_multiplier = 0.6
   slowdown_duration = 10.0
-  
+  enemy_freeze_duration = 5.0
+  enemy_speedup_multiplier = 1.4
+  enemy_speedup_duration = 10.0
+  ghost_mode_duration = 8.0
+
   [Types]
-  speed_boost_weight = 30
-  extra_mine_weight = 20
-  shield_weight = 25
+  # Weighted spawn chances
+  speed_boost_weight = 25
   slowdown_weight = 15
-  mine_loss_weight = 10
+  enemy_freeze_weight = 20
+  enemy_speedup_weight = 15
+  ghost_mode_weight = 25
   ```
 
 **Testing:**
 - All powerup types work correctly
-- Effects stack properly
-- Shield blocks one hit then disappears
-- Cursed powerups apply correctly
-- Timer-based effects expire
+- Effects apply and expire properly
+- Speed changes are noticeable but balanced
+- Enemy freeze stops all enemy movement
+- Ghost mode allows passing through enemies without capture
+- HUD shows current active effects
+- Conflicting effects handle gracefully (e.g., speed boost + slowdown)
 
 
 ---
 
-## Phase D: Polish & Progression
+## Phase D: Level Progression & Themes
 
-#### **D1: Visual Effects**
-**Goal:** Screen shake, particles, animations
+#### **D1: Maze Transitions**
+**Goal:** Smooth level transitions with visual flair
 
 **Tasks:**
-1. Implement screen shake on collision
-2. Create particle system for:
-   - Mine explosions
-   - Powerup pickup sparkles
-   - Invincibility glow particles
-3. Maze build-in animation between levels
-4. Smooth transitions
+1. Implement level complete screen
+2. Show captured facts summary
+3. Create maze build-in animation
+4. Add "Ready?" countdown before next level
+5. Smooth fade transitions
 
 **Files:**
-- Update `systems/effects.py`
+- Update `systems/effects.py` (transitions, animations)
+- Create `ui/level_complete.py` (summary screen)
 
 
 ---
 
-#### **D2: Level Progression System**
-**Goal:** Multiple themes, difficulty scaling
+#### **D2: Theme System & Difficulty Scaling**
+**Goal:** Multiple themes with progressive difficulty
 
 **Tasks:**
-1. Implement level-complete screen
-2. Load next theme JSON
-3. Scale enemy count per formula
-4. Increase wall density
+1. Create multiple fact theme files (cats, bears, vehicles, etc.)
+2. Load different theme per level
+3. Scale enemy count with progression
+4. Increase maze complexity per level
 5. Track all collected facts in pause menu
-6. Add "any key" advance functionality
+6. Vary enemy behavior distributions by level
 
 **Files:**
-- Update `systems/game_state.py`
-- Update `ui/pause_menu.py`
-- Create all theme JSON files
+- Update `systems/game_state.py` (theme loading, difficulty scaling)
+- Update `ui/pause_menu.py` (fact collection display)
+- Create all theme JSON files (cats, bears, vehicles, space, etc.)
+
+**Configuration:**
+- `config/gameplay.ini`:
+  ```ini
+  [Progression]
+  starting_enemies = 5
+  enemy_increase_per_level = 2
+  max_enemies_per_level = 15
+  ```
+
+**Testing:**
+- Different themes load correctly
+- Difficulty increases feel balanced
+- Facts don't repeat within a level
+- Pause menu shows all captured facts
 
 
 ---
@@ -407,14 +522,20 @@
 
 **Tasks:**
 1. Add sound effects:
-   - Mine placement
-   - Collision
-   - Powerup pickup
+   - Enemy capture
+   - Player freeze/glow
    - Level complete
-2. Background music
+   - Fact display
+2. Background music (optional)
 3. Final HUD polish
 4. Performance optimization
 5. Comprehensive testing
+
+**Testing:**
+- All sound effects trigger correctly
+- Audio doesn't overlap awkwardly
+- Performance stays at 60 FPS
+- Game is fun and educational!
 
 
 ---
@@ -429,7 +550,7 @@
 **Integration Testing:**
 - Play through 3+ levels without crashes
 - Verify all enemy behaviors work together
-- Test edge cases (0 mines, all cursed powerups, etc.)
+- Test edge cases (rapid captures, maze corners, etc.)
 
 **Playtesting:**
 - Kids (target audience) test for difficulty balance

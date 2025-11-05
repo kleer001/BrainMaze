@@ -1,2 +1,2 @@
 pygame>=2.6.1
-pygame-emojis>=1.0.0
+pygame-emojis>=0.2.0
