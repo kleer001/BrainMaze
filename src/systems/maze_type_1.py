@@ -1,5 +1,5 @@
 import random
-from src.systems.maze_generator import MazeGenerator
+from systems.maze_generator import MazeGenerator
 
 WALL = 1
 PATH = 0
