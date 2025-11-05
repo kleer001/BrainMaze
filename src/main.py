@@ -9,6 +9,7 @@ import pygame
 import sys
 import random
 import configparser
+import argparse
 from pathlib import Path
 
 # Import entities and systems
@@ -18,14 +19,22 @@ from systems.maze import Maze
 from systems.collision import CollisionManager
 from systems.game_state import GameState
 from systems.effects import EffectsManager
+from systems.maze_type_1 import MazeType1
+from systems.maze_type_2 import MazeType2
+from systems.maze_type_3 import MazeType3
+from systems.maze_type_4 import MazeType4
 
 class BrainMaze:
     """
     Main game class managing the game loop and state.
     """
     
-    def __init__(self):
-        """Initialize game systems."""
+    def __init__(self, maze_type=1):
+        """Initialize game systems.
+
+        Args:
+            maze_type: Integer specifying which maze generation algorithm to use (1-4)
+        """
         pygame.init()
         
         # Load configuration
@@ -78,7 +87,10 @@ class BrainMaze:
         max_wall_length = self.config.getint('Maze', 'max_wall_length')
         orientation = self.config.get('Maze', 'orientation')
         max_attempts = self.config.getint('Maze', 'max_generation_attempts')
-        self.maze = Maze(grid_size, tile_size, min_wall_length, max_wall_length, orientation, max_attempts)
+
+        # Create maze generator based on type
+        generator = self._create_maze_generator(maze_type, min_wall_length, max_wall_length, orientation)
+        self.maze = Maze(grid_size, tile_size, min_wall_length, max_wall_length, orientation, max_attempts, generator)
         # Create collision manager
         self.collision_manager = CollisionManager(self.maze, self.config)
 
@@ -107,6 +119,34 @@ class BrainMaze:
             enemy = Enemy(spawn_x, spawn_y, self.config, self.collision_manager, emoji, behavior)
             self.enemies.add(enemy)
             self.all_sprites.add(enemy)
+
+    def _create_maze_generator(self, maze_type, min_wall_length, max_wall_length, orientation):
+        """
+        Create the appropriate maze generator based on type.
+
+        Args:
+            maze_type: Integer 1-4 specifying which algorithm to use
+            min_wall_length: Minimum wall length for type 1
+            max_wall_length: Maximum wall length for type 1
+            orientation: 'vertical' or 'horizontal' for mirroring direction
+
+        Returns:
+            MazeGenerator instance
+        """
+        if maze_type == 1:
+            return MazeType1(min_wall_length, max_wall_length, orientation)
+        elif maze_type == 2:
+            # Binary tree with default NW bias and mirroring
+            return MazeType2(north_bias=0.5, orientation=orientation)
+        elif maze_type == 3:
+            # Recursive backtracking with mirroring
+            return MazeType3(orientation)
+        elif maze_type == 4:
+            # Sidewinder with mirroring
+            return MazeType4(orientation)
+        else:
+            print(f"Warning: Unknown maze type {maze_type}, defaulting to type 1")
+            return MazeType1(min_wall_length, max_wall_length, orientation)
 
     def _find_enemy_spawn_position(self):
         """
@@ -230,7 +270,17 @@ class BrainMaze:
 
 def main():
     """Entry point."""
-    game = BrainMaze()
+    parser = argparse.ArgumentParser(description='Brain Maze - Educational fact collection game')
+    parser.add_argument(
+        '--maze-type', '-m',
+        type=int,
+        default=1,
+        choices=[1, 2, 3, 4],
+        help='Maze generation algorithm: 1=Scattered walls, 2=Binary tree, 3=Recursive backtracking, 4=Sidewinder'
+    )
+    args = parser.parse_args()
+
+    game = BrainMaze(maze_type=args.maze_type)
     game.run()
 
 
