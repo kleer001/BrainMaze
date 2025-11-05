@@ -1,7 +1,7 @@
 """
 AI behaviors for enemies.
 Phase A3: Wanderer behavior only - random direction changes.
-Phase A5: Multiple behaviors - Wanderer, Patrol, Seeker, Flee, Combo.
+Phase A5: Multiple waypoint-based behaviors - Wanderer (variable), Patrol (fixed).
 """
 
 import random
