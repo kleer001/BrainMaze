@@ -1,7 +1,7 @@
 import random
 import pygame
-from src.systems.maze_type_1 import MazeType1
-from src.systems.maze_validator import MazeValidator
+from systems.maze_type_1 import MazeType1
+from systems.maze_validator import MazeValidator
 
 WALL = 1
 PATH = 0
