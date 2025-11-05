@@ -173,34 +173,31 @@
 **Goal:** Enemies exhibit distinct movement patterns
 
 **Tasks:**
-1. Implement all behavior types:
-   - Seeker (moves toward player)
-   - Patrol (follows fixed path)
-   - Flee (moves away from player)
-   - Combo (switches based on distance)
+1. Implement waypoint-based behavior types:
+   - Wanderer (variable waypoints - random targets)
+   - Patrol (fixed waypoints - quadrant centers)
 2. Assign random behavior to each enemy on spawn
-3. Use awareness radius for detection
-4. Implement memory system (last seen position)
+3. Use BFS pathfinding for reliable navigation
+4. Both behaviors follow same architecture pattern
 
 **Files:**
-- Update `ai/behaviors.py` (all behaviors)
-- `ai/pathfinding.py` (basic A* for seekers)
+- Update `ai/behaviors.py` (WandererBehavior, PatrolBehavior)
+- `ai/pathfinding.py` (BFS pathfinding)
+- `entities/enemy.py` (behavior assignment system)
+- `test_a5_behaviors.py` (comprehensive test suite)
 
 **Configuration:**
 - `config/enemies.ini`:
   ```ini
   [Behaviors]
-  behavior_types = wanderer,seeker,patrol,flee,combo
-  seeker_aggression_threshold = 0.5
-  flee_trigger_distance = 5
+  behavior_types = wanderer,patrol
   ```
 
 **Testing:**
-- Each behavior type works as expected
-- Seekers chase player when in range
-- Flee enemies avoid player
-- Patrol enemies follow consistent paths
-- Combo enemies switch behaviors correctly
+- Wanderer navigates to random waypoints successfully
+- Patrol follows fixed quadrant waypoints consistently
+- Both behaviors handle pathfinding correctly
+- Behavior assignment works on enemy spawn
 
 
 ---

@@ -1,11 +1,11 @@
 """
 AI behaviors for enemies.
 Phase A3: Wanderer behavior only - random direction changes.
-Phase A5: Multiple behaviors - Wanderer, Patrol, Seeker, Flee, Combo.
+Phase A5: Multiple waypoint-based behaviors - Wanderer (variable), Patrol (fixed).
 """
 
 import random
-from ai.pathfinding import get_direction_towards_target, find_nearest_walkable_tile, find_path_bfs
+from ai.pathfinding import find_nearest_walkable_tile, find_path_bfs
 
 
 class Behavior:
@@ -36,58 +36,73 @@ class Behavior:
 
 class WandererBehavior(Behavior):
     """
-    Wanderer behavior - randomly changes direction.
-    Enemy roams the maze without regard for player position.
+    Wanderer behavior - patrols to random waypoints.
+    Enemy roams the maze by navigating to randomly selected positions.
     """
 
     def __init__(self, enemy):
-        """
-        Initialize wanderer behavior.
-
-        Args:
-            enemy: Enemy instance this behavior controls
-        """
         super().__init__(enemy)
-        self.current_direction = None
-        self.direction_timer = 0.0
-        self.change_interval = enemy.config.getfloat('Movement', 'wander_direction_change_interval')
+        self.maze = enemy.collision_manager.maze
+        self.current_waypoint = None
+        self.cached_path = None
+        self.path_index = 0
+
+    def _generate_random_waypoint(self):
+        max_attempts = 20
+        for _ in range(max_attempts):
+            x = random.randint(0, self.maze.grid_size - 1)
+            y = random.randint(0, self.maze.grid_size - 1)
+            if not self.maze.is_wall(x, y):
+                return (x, y)
+        return None
+
+    def _is_walkable(self, x, y):
+        if x < 0 or x >= self.maze.grid_size or y < 0 or y >= self.maze.grid_size:
+            return False
+        return not self.maze.is_wall(x, y)
 
     def update(self, dt, player_pos):
-        """
-        Update wanderer behavior - randomly change direction.
+        enemy_x, enemy_y = self.enemy.tile_x, self.enemy.tile_y
 
-        Args:
-            dt: Delta time in seconds
-            player_pos: Tuple of (x, y) player tile position (unused for wanderer)
+        if self.current_waypoint is None:
+            self.current_waypoint = self._generate_random_waypoint()
+            if self.current_waypoint is None:
+                return None
 
-        Returns:
-            str: Direction to move ('up', 'down', 'left', 'right', or None)
-        """
-        # Update timer
-        self.direction_timer -= dt
+        target_x, target_y = self.current_waypoint
 
-        # Time to change direction?
-        if self.direction_timer <= 0 or self.current_direction is None:
-            # Pick a new random direction
-            directions = ['up', 'down', 'left', 'right']
+        if enemy_x == target_x and enemy_y == target_y:
+            self.current_waypoint = self._generate_random_waypoint()
+            self.cached_path = None
+            self.path_index = 0
+            if self.current_waypoint is None:
+                return None
+            target_x, target_y = self.current_waypoint
 
-            # Try to pick a valid direction (not blocked by wall)
-            valid_directions = []
-            for direction in directions:
-                if self.enemy.can_move_in_direction(direction):
-                    valid_directions.append(direction)
+        if self.cached_path is None or self.path_index >= len(self.cached_path):
+            self.cached_path = find_path_bfs(
+                enemy_x, enemy_y,
+                target_x, target_y,
+                self._is_walkable
+            )
+            self.path_index = 0
 
-            if valid_directions:
-                # Pick a random valid direction
-                self.current_direction = random.choice(valid_directions)
+            if self.cached_path is None:
+                self.current_waypoint = None
+                return None
+
+        if self.path_index < len(self.cached_path):
+            direction = self.cached_path[self.path_index]
+
+            if self.enemy.can_move_in_direction(direction):
+                self.path_index += 1
+                return direction
             else:
-                # No valid directions, stay put
-                self.current_direction = None
+                self.cached_path = None
+                self.path_index = 0
+                return None
 
-            # Reset timer
-            self.direction_timer = self.change_interval
-
-        return self.current_direction
+        return None
 
 
 class PatrolBehavior(Behavior):

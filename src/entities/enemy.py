@@ -16,7 +16,7 @@ class Enemy(pygame.sprite.Sprite):
     Moves through the maze with wall collision detection.
     """
 
-    def __init__(self, x, y, config, collision_manager):
+    def __init__(self, x, y, config, collision_manager, emoji="🐱", behavior_type=None):
         """
         Initialize enemy at grid position (x, y).
 
@@ -25,12 +25,15 @@ class Enemy(pygame.sprite.Sprite):
             y: Grid Y position (tile coordinates)
             config: ConfigParser object with gameplay and enemy settings
             collision_manager: CollisionManager instance for wall detection
+            emoji: Emoji character to display (default: "🐱")
+            behavior_type: Specific behavior type ('wanderer' or 'patrol'), or None for random
         """
         super().__init__()
 
         # Store references
         self.config = config
         self.collision_manager = collision_manager
+        self.behavior_type_override = behavior_type
 
         # Load tile size from maze config
         self.tile_size = config.getint('Maze', 'tile_size')
@@ -53,9 +56,8 @@ class Enemy(pygame.sprite.Sprite):
         self.tile_y = y
 
         # Create visual representation (emoji)
-        # For Phase A3, we'll render a cat emoji 🐱
         self.render_emoji = True
-        self.emoji = "🐱"
+        self.emoji = emoji
 
         # Create surface for rendering
         if self.render_emoji:
@@ -87,28 +89,20 @@ class Enemy(pygame.sprite.Sprite):
         self.behavior = self._assign_random_behavior()
 
     def _assign_random_behavior(self):
-        """
-        Randomly assign a behavior to this enemy based on config.
-
-        Returns:
-            Behavior instance
-        """
-        # Get available behavior types from config
-        behavior_types_str = self.config.get('Behaviors', 'behavior_types')
-        behavior_types = [b.strip() for b in behavior_types_str.split(',')]
-
-        # Randomly select a behavior type
-        behavior_type = random.choice(behavior_types)
-
-        # Create and return the appropriate behavior instance
-        if behavior_type == 'wanderer':
-            return WandererBehavior(self)
-        elif behavior_type == 'patrol':
-            return PatrolBehavior(self)
+        if self.behavior_type_override:
+            behavior_type = self.behavior_type_override
         else:
-            # Default to wanderer if unknown type
-            print(f"Warning: Unknown behavior type '{behavior_type}', defaulting to wanderer")
-            return WandererBehavior(self)
+            behavior_types_str = self.config.get('Behaviors', 'behavior_types')
+            behavior_types = [b.strip() for b in behavior_types_str.split(',')]
+            behavior_type = random.choice(behavior_types)
+
+        behavior_map = {
+            'wanderer': WandererBehavior,
+            'patrol': PatrolBehavior
+        }
+
+        behavior_class = behavior_map.get(behavior_type, WandererBehavior)
+        return behavior_class(self)
 
     def can_move_in_direction(self, direction):
         """
