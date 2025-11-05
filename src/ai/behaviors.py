@@ -5,7 +5,7 @@ Phase A5: Multiple behaviors - Wanderer, Patrol, Seeker, Flee, Combo.
 """
 
 import random
-from ai.pathfinding import get_direction_towards_target, find_nearest_walkable_tile, find_path_bfs
+from ai.pathfinding import find_nearest_walkable_tile, find_path_bfs
 
 
 class Behavior:

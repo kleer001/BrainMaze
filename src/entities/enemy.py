@@ -87,28 +87,17 @@ class Enemy(pygame.sprite.Sprite):
         self.behavior = self._assign_random_behavior()
 
     def _assign_random_behavior(self):
-        """
-        Randomly assign a behavior to this enemy based on config.
-
-        Returns:
-            Behavior instance
-        """
-        # Get available behavior types from config
         behavior_types_str = self.config.get('Behaviors', 'behavior_types')
         behavior_types = [b.strip() for b in behavior_types_str.split(',')]
-
-        # Randomly select a behavior type
         behavior_type = random.choice(behavior_types)
 
-        # Create and return the appropriate behavior instance
-        if behavior_type == 'wanderer':
-            return WandererBehavior(self)
-        elif behavior_type == 'patrol':
-            return PatrolBehavior(self)
-        else:
-            # Default to wanderer if unknown type
-            print(f"Warning: Unknown behavior type '{behavior_type}', defaulting to wanderer")
-            return WandererBehavior(self)
+        behavior_map = {
+            'wanderer': WandererBehavior,
+            'patrol': PatrolBehavior
+        }
+
+        behavior_class = behavior_map.get(behavior_type, WandererBehavior)
+        return behavior_class(self)
 
     def can_move_in_direction(self, direction):
         """
