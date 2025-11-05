@@ -1,356 +1,169 @@
-"""
-Maze generation system using corridor-carving algorithm with perfect symmetry.
-"""
-
 import random
 import pygame
-import configparser
-from pathlib import Path
 from collections import deque
-from enum import Enum
 
 WALL = 1
 PATH = 0
 
-INTERNAL_WALL = 0
-INTERNAL_CORRIDOR = 1
-
-
-class Direction(Enum):
-    UP = (0, -1)
-    DOWN = (0, 1)
-    LEFT = (-1, 0)
-    RIGHT = (1, 0)
-
-    def turn_right(self):
-        """Rotate 90° clockwise."""
-        turns = {
-            Direction.UP: Direction.RIGHT,
-            Direction.RIGHT: Direction.DOWN,
-            Direction.DOWN: Direction.LEFT,
-            Direction.LEFT: Direction.UP,
-        }
-        return turns[self]
-
 
 class Maze:
-    """
-    Maze generator with perfect left-right symmetry.
-    """
-
-    def __init__(self, grid_size, tile_size, wall_density=0.2, max_wall_length=4, max_attempts=100):
-        """
-        Initialize maze generator.
-
-        Args:
-            grid_size: Total grid size (e.g., 20 for 20x20 grid)
-            tile_size: Size of each tile in pixels
-            wall_density: Ignored, kept for API compatibility
-            max_wall_length: Ignored, kept for API compatibility
-            max_attempts: Ignored, kept for API compatibility
-        """
-        self.tile_size = tile_size
-
-        if grid_size % 2 == 0:
-            grid_size += 1
-
+    def __init__(self, grid_size, tile_size, min_wall_length=1, max_wall_length=5, 
+                 orientation='vertical', max_attempts=100):
         self.grid_size = grid_size
+        self.tile_size = tile_size
+        self.min_wall_length = min_wall_length
+        self.max_wall_length = max_wall_length
+        self.orientation = orientation
+        self.max_attempts = max_attempts
         self.grid = []
         self.start_pos = None
         self.end_pos = None
-
-        config = self._load_config()
-        self.fill_target = config.getfloat('Generation', 'fill_target')
-        self.chamber_min = config.getint('Generation', 'chamber_min_size')
-        self.chamber_max = config.getint('Generation', 'chamber_max_size')
-        self.corridor_len_min = config.getint('Generation', 'corridor_length_min')
-        self.corridor_len_max = config.getint('Generation', 'corridor_length_max')
-        self.generation_attempts = config.getint('Generation', 'max_attempts')
-
         self._generate()
 
-    def _load_config(self):
-        """Load maze generation configuration."""
-        config = configparser.ConfigParser()
-        config_path = Path('config/maze_config.ini')
-
-        if config_path.exists():
-            config.read(config_path)
-        else:
-            config['Generation'] = {
-                'fill_target': '0.8',
-                'chamber_min_size': '3',
-                'chamber_max_size': '5',
-                'corridor_length_min': '3',
-                'corridor_length_max': '8',
-                'max_attempts': '5'
-            }
-
-        return config
-
     def _generate(self):
-        """Generate maze using corridor-carving algorithm."""
-        for attempt in range(self.generation_attempts):
-            internal_grid = [[INTERNAL_WALL for _ in range(self.grid_size)] for _ in range(self.grid_size)]
+        for _ in range(self.max_attempts):
+            self.grid = [[PATH] * self.grid_size for _ in range(self.grid_size)]
+            self._scatter_walls()
+            self._find_start_end_positions()
+            
+            if self._is_connected(self.start_pos, self.end_pos) and self._is_fully_traversable():
+                return
+        
+        self.grid = [[PATH] * self.grid_size for _ in range(self.grid_size)]
+        self._find_start_end_positions()
 
-            chamber_size = random.randint(self.chamber_min, self.chamber_max)
-            self._carve_chamber(internal_grid, 1, 1, chamber_size, chamber_size)
-            self._carve_chamber(internal_grid, 1, self.grid_size - chamber_size - 1, chamber_size, chamber_size)
-            self._mirror_to_right(internal_grid)
+    def _scatter_walls(self):
+        is_vertical = self.orientation == 'vertical'
+        half_size = self.grid_size // 2 + 1
+        
+        for line in range(1, half_size, 2):
+            self._fill_line(line, is_vertical)
+        
+        self._mirror(half_size, is_vertical)
 
-            if self._carve_corridors(internal_grid):
-                self._mirror_to_right(internal_grid)
-                self._convert_grid(internal_grid)
-                self._find_start_end()
-                if self._is_connected():
-                    return
-
-        self.grid = [[PATH for _ in range(self.grid_size)] for _ in range(self.grid_size)]
-        self.start_pos = (1, 1)
-        self.end_pos = (self.grid_size - 2, self.grid_size - 2)
-
-    def _carve_chamber(self, grid, x, y, width, height):
-        """Carve a rectangular chamber."""
-        for cy in range(y, min(y + height, self.grid_size)):
-            for cx in range(x, min(x + width, self.grid_size)):
-                grid[cy][cx] = INTERNAL_CORRIDOR
-
-    def _mirror_to_right(self, grid):
-        """Mirror left half to right half across vertical axis."""
-        middle = self.grid_size // 2
-        for y in range(self.grid_size):
-            for x in range(1, middle + 1):
-                mirror_x = self.grid_size - 1 - x
-                grid[y][mirror_x] = grid[y][x]
-
-    def _carve_corridors(self, grid):
-        """Carve corridors on left half until fill target reached."""
-        iterations = 0
-        max_iterations = 10000
-
-        while self._get_projected_fill(grid) < self.fill_target and iterations < max_iterations:
-            iterations += 1
-            frontier_cells = self._get_frontier_cells(grid)
-
-            if not frontier_cells:
-                break
-
-            start_cell = random.choice(frontier_cells)
-            self._carve_pattern_from(grid, start_cell)
-
-        return self._get_projected_fill(grid) >= self.fill_target
-
-    def _get_frontier_cells(self, grid):
-        """Get all corridor cells adjacent to walls on left half."""
-        frontier = []
-        middle = self.grid_size // 2
-
-        for y in range(self.grid_size):
-            for x in range(middle + 1):
-                if grid[y][x] == INTERNAL_CORRIDOR:
-                    for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
-                        nx, ny = x + dx, y + dy
-                        if self._is_valid(nx, ny) and grid[ny][nx] == INTERNAL_WALL:
-                            frontier.append((x, y))
-                            break
-
-        return frontier
-
-    def _carve_pattern_from(self, grid, start_pos):
-        """Carve an L-shaped pattern from start position."""
-        x, y = start_pos
-        initial_dir = random.choice(list(Direction))
-
-        segments = [
-            ('A', initial_dir),
-            ('B', initial_dir.turn_right()),
-            ('A', initial_dir.turn_right().turn_right()),
-            ('B', initial_dir.turn_right().turn_right().turn_right()),
-        ]
-
-        current_x, current_y = x, y
-
-        for segment_type, direction in segments:
-            length = random.randint(self.corridor_len_min, self.corridor_len_max)
-            carved_length = self._carve_segment(grid, current_x, current_y, direction, length)
-
-            if carved_length > 0:
-                dx, dy = direction.value
-                current_x += dx * carved_length
-                current_y += dy * carved_length
-
-    def _carve_segment(self, grid, start_x, start_y, direction, length):
-        """Carve a corridor segment in given direction on left half only."""
-        dx, dy = direction.value
-        carved = 0
-        x, y = start_x, start_y
-        middle = self.grid_size // 2
-
-        for step in range(length):
-            x += dx
-            y += dy
-
-            if not self._is_valid(x, y):
-                break
-
-            if x > middle:
-                break
-
-            if grid[y][x] == INTERNAL_CORRIDOR:
-                break
-
-            if grid[y][x] == INTERNAL_WALL:
-                grid[y][x] = INTERNAL_CORRIDOR
-                carved += 1
+    def _fill_line(self, line, is_vertical):
+        position = 0
+        start_with_path = random.choice([True, False])
+        
+        while position < self.grid_size:
+            if start_with_path:
+                position = self._place_segment(line, position, PATH, 1, is_vertical)
+                position = self._place_segment(line, position, WALL, 
+                                              self._random_wall_length(), is_vertical)
             else:
+                position = self._place_segment(line, position, WALL, 
+                                              self._random_wall_length(), is_vertical)
+                position = self._place_segment(line, position, PATH, 1, is_vertical)
+
+    def _place_segment(self, line, start, cell_type, length, is_vertical):
+        for i in range(length):
+            if start + i >= self.grid_size:
                 break
+            x, y = (line, start + i) if is_vertical else (start + i, line)
+            self.grid[y][x] = cell_type
+        return start + length
 
-        return carved
+    def _random_wall_length(self):
+        return random.randint(self.min_wall_length, self.max_wall_length)
 
-    def _get_projected_fill(self, grid):
-        """Calculate projected fill percentage after mirroring left half to right."""
-        middle = self.grid_size // 2
-        filled_left = 0
-        filled_middle = 0
+    def _mirror(self, half_size, is_vertical):
+        for i in range(half_size):
+            mirror_i = self.grid_size - 1 - i
+            for j in range(self.grid_size):
+                if is_vertical:
+                    self.grid[j][mirror_i] = self.grid[j][i]
+                else:
+                    self.grid[mirror_i][j] = self.grid[i][j]
 
-        for y in range(self.grid_size):
-            for x in range(self.grid_size):
-                if grid[y][x] == INTERNAL_CORRIDOR:
-                    if x < middle:
-                        filled_left += 1
-                    elif x == middle:
-                        filled_middle += 1
-
-        projected_filled = (filled_left * 2) + filled_middle
-        total = self.grid_size * self.grid_size
-        return projected_filled / total
-
-    def _convert_grid(self, internal_grid):
-        """Convert internal representation to public representation."""
-        self.grid = [[WALL if cell == INTERNAL_WALL else PATH for cell in row] for row in internal_grid]
-
-    def _find_start_end(self):
-        """Set start/end positions in opposite corners."""
-        for y in range(min(3, self.grid_size)):
-            for x in range(min(3, self.grid_size)):
-                if self.grid[y][x] == PATH:
-                    self.start_pos = (x, y)
-                    break
-            if self.start_pos:
-                break
-
-        for y in range(max(0, self.grid_size - 3), self.grid_size):
-            for x in range(max(0, self.grid_size - 3), self.grid_size):
-                if self.grid[y][x] == PATH:
-                    self.end_pos = (x, y)
-                    break
-            if self.end_pos:
-                break
-
-        if not self.start_pos:
-            self.start_pos = (1, 1)
-        if not self.end_pos:
-            self.end_pos = (self.grid_size - 2, self.grid_size - 2)
-
-    def _is_connected(self):
-        """Check if start and end are connected via BFS."""
-        if not self.start_pos or not self.end_pos:
-            return False
-
-        queue = deque([self.start_pos])
-        visited = {self.start_pos}
-
+    def _is_connected(self, start, end):
+        if start == end:
+            return True
+        
+        visited = {start}
+        queue = deque([start])
+        
         while queue:
             x, y = queue.popleft()
-
-            if (x, y) == self.end_pos:
-                return True
-
+            
             for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
                 nx, ny = x + dx, y + dy
-
-                if (self._is_valid(nx, ny) and
-                    (nx, ny) not in visited and
-                    self.grid[ny][nx] == PATH):
+                if (nx, ny) == end:
+                    return True
+                if self._is_valid_path(nx, ny) and (nx, ny) not in visited:
                     visited.add((nx, ny))
                     queue.append((nx, ny))
-
+        
         return False
 
-    def _is_valid(self, x, y):
-        """Check if coordinates are within bounds."""
-        return 0 <= x < self.grid_size and 0 <= y < self.grid_size
+    def _is_fully_traversable(self):
+        if not self.start_pos:
+            return False
+        
+        total_paths = sum(1 for row in self.grid for cell in row if cell == PATH)
+        
+        visited = {self.start_pos}
+        queue = deque([self.start_pos])
+        
+        while queue:
+            x, y = queue.popleft()
+            for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
+                nx, ny = x + dx, y + dy
+                if self._is_valid_path(nx, ny) and (nx, ny) not in visited:
+                    visited.add((nx, ny))
+                    queue.append((nx, ny))
+        
+        return len(visited) == total_paths
+
+    def _is_valid_path(self, x, y):
+        return (0 <= x < self.grid_size and 
+                0 <= y < self.grid_size and 
+                not self.is_wall(x, y))
+
+    def _find_start_end_positions(self):
+        corner_pairs = [
+            ((1, 1), (self.grid_size - 2, self.grid_size - 2)),
+            ((self.grid_size - 2, 1), (1, self.grid_size - 2))
+        ]
+        start_corner, end_corner = random.choice(corner_pairs)
+        
+        self.start_pos = self._find_path_near(start_corner) or (1, 1)
+        self.end_pos = self._find_path_near(end_corner) or (self.grid_size - 2, self.grid_size - 2)
+
+    def _find_path_near(self, corner):
+        for dy in range(-1, 2):
+            for dx in range(-1, 2):
+                x, y = corner[0] + dx, corner[1] + dy
+                if 0 <= x < self.grid_size and 0 <= y < self.grid_size and not self.is_wall(x, y):
+                    return (x, y)
+        return None
 
     def get_start_position(self):
-        """
-        Get start position in tile coordinates.
-
-        Returns:
-            tuple: (x, y) in tile coordinates
-        """
         return self.start_pos
 
     def get_end_position(self):
-        """
-        Get end position in tile coordinates.
-
-        Returns:
-            tuple: (x, y) in tile coordinates
-        """
         return self.end_pos
 
     def is_wall(self, x, y):
-        """
-        Check if a grid cell is a wall.
-
-        Args:
-            x: Grid X coordinate
-            y: Grid Y coordinate
-
-        Returns:
-            bool: True if cell is a wall or out of bounds
-        """
-        if not self._is_valid(x, y):
+        if not (0 <= x < self.grid_size and 0 <= y < self.grid_size):
             return True
         return self.grid[y][x] == WALL
 
     def can_move_to(self, from_x, from_y, to_x, to_y):
-        """
-        Check if movement from one tile to another is valid.
-
-        Args:
-            from_x: Starting tile X (grid coordinates)
-            from_y: Starting tile Y (grid coordinates)
-            to_x: Target tile X (grid coordinates)
-            to_y: Target tile Y (grid coordinates)
-
-        Returns:
-            bool: True if movement is valid (target is not a wall)
-        """
         return not self.is_wall(to_x, to_y)
 
     def render(self, surface, colors):
-        """
-        Render the maze to a surface.
-
-        Args:
-            surface: Pygame surface to draw on
-            colors: Dictionary with keys 'floor', 'wall', 'start', 'end'
-        """
         for y in range(self.grid_size):
             for x in range(self.grid_size):
-                rect = pygame.Rect(
-                    x * self.tile_size,
-                    y * self.tile_size,
-                    self.tile_size,
-                    self.tile_size
-                )
-
+                rect = pygame.Rect(x * self.tile_size, y * self.tile_size, 
+                                  self.tile_size, self.tile_size)
+                
                 if self.grid[y][x] == WALL:
-                    pygame.draw.rect(surface, colors['wall'], rect)
+                    color = colors['wall']
                 elif (x, y) == self.start_pos:
-                    pygame.draw.rect(surface, colors['start'], rect)
+                    color = colors['start']
                 elif (x, y) == self.end_pos:
-                    pygame.draw.rect(surface, colors['end'], rect)
+                    color = colors['end']
                 else:
-                    pygame.draw.rect(surface, colors['floor'], rect)
+                    color = colors['floor']
+                
+                pygame.draw.rect(surface, color, rect)

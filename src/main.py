@@ -72,11 +72,11 @@ class BrainMaze:
         # Generate maze
         grid_size = self.config.getint('Maze', 'grid_size')
         tile_size = self.config.getint('Maze', 'tile_size')
-        wall_density = self.config.getfloat('Maze', 'wall_density')
+        min_wall_length = self.config.getint('Maze', 'min_wall_length')
         max_wall_length = self.config.getint('Maze', 'max_wall_length')
+        orientation = self.config.get('Maze', 'orientation')
         max_attempts = self.config.getint('Maze', 'max_generation_attempts')
-        self.maze = Maze(grid_size, tile_size, wall_density, max_wall_length, max_attempts)
-
+        self.maze = Maze(grid_size, tile_size, min_wall_length, max_wall_length, orientation, max_attempts)
         # Create collision manager
         self.collision_manager = CollisionManager(self.maze, self.config)
 
