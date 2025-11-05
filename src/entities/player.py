@@ -1,7 +1,7 @@
 import pygame
 import math
+from pygame.math import Vector2
 from entities.grid_entity import GridEntity
-from utils.vector2 import Vector2
 from utils.direction import UP, DOWN, LEFT, RIGHT, apply_direction
 
 BRIGHTNESS_AMPLITUDE = 0.4
