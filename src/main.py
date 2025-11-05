@@ -7,6 +7,7 @@ Phase A4: Collision triggers respawn with invincibility.
 
 import pygame
 import sys
+import random
 import configparser
 from pathlib import Path
 
@@ -89,12 +90,44 @@ class BrainMaze:
         self.player = Player(start_x, start_y, self.config, self.collision_manager)
         self.all_sprites.add(self.player)
 
-        # Create enemy at maze end position (Phase A3)
-        end_x, end_y = self.maze.get_end_position()
-        enemy = Enemy(end_x, end_y, self.config, self.collision_manager)
-        self.enemies.add(enemy)
-        self.all_sprites.add(enemy)
-        
+        # Create enemies with variety (Phase A5)
+        # 2 wanderers: cat and dog
+        # 2 patrollers: mouse and cheese
+        enemy_configs = [
+            ("🐱", "wanderer"),
+            ("🐶", "wanderer"),
+            ("🐭", "patrol"),
+            ("🧀", "patrol")
+        ]
+
+        for emoji, behavior in enemy_configs:
+            # Find a valid spawn position
+            spawn_x, spawn_y = self._find_enemy_spawn_position()
+            enemy = Enemy(spawn_x, spawn_y, self.config, self.collision_manager, emoji, behavior)
+            self.enemies.add(enemy)
+            self.all_sprites.add(enemy)
+
+    def _find_enemy_spawn_position(self):
+        """
+        Find a random valid spawn position for an enemy.
+
+        Returns:
+            Tuple of (x, y) tile coordinates
+        """
+        grid_size = self.maze.grid_size
+        max_attempts = 100
+
+        for _ in range(max_attempts):
+            x = random.randint(0, grid_size - 1)
+            y = random.randint(0, grid_size - 1)
+
+            # Check if position is walkable
+            if not self.maze.is_wall(x, y):
+                return (x, y)
+
+        # Fallback to end position if no valid position found
+        return self.maze.get_end_position()
+
     def handle_events(self):
         """Process input events."""
         for event in pygame.event.get():

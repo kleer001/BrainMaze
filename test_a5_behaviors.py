@@ -51,6 +51,7 @@ class MockEnemy:
         self.awareness = 8
         self.config = MockConfig()
         self.collision_manager = MockCollisionManager()
+        self.behavior_type_override = None
 
     def can_move_in_direction(self, direction):
         target_x, target_y = self.tile_x, self.tile_y
