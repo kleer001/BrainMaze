@@ -82,8 +82,4 @@ class Maze:
         x, y = pos
         if self.grid[y][x] == WALL:
             return colors['wall']
-        if pos == self.start_pos:
-            return colors['start']
-        if pos == self.end_pos:
-            return colors['end']
         return colors['floor']
