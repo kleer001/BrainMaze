@@ -208,27 +208,16 @@ class BrainMaze:
 
     def _check_collisions(self):
         """Check for player-enemy collisions."""
-        # Only check if player can take damage
-        if not self.player.can_take_damage():
-            return
-
-        # Check collision with any enemy
         collided_enemies = pygame.sprite.spritecollide(
             self.player,
             self.enemies,
-            False,  # Don't remove enemies on collision
+            False,
             pygame.sprite.collide_rect
         )
 
-        if collided_enemies:
-            # Trigger screen flash
-            self.effects_manager.trigger_screen_flash()
-
-            # Respawn player
-            self.player.respawn()
-
-            # Reset mine counter
-            self.game_state.reset_mines()
+        for enemy in collided_enemies:
+            if not enemy.is_dying:
+                enemy_type = enemy.die()
     
     def render(self):
         """Draw everything to screen."""

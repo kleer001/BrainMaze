@@ -5,6 +5,7 @@ Phase A4: Movement with wall collision detection and invincibility system.
 
 import pygame
 import math
+from pygame_emojis import load_emoji
 
 
 class Vector2:
@@ -55,10 +56,13 @@ class Player(pygame.sprite.Sprite):
         # Convert speed from tiles/second to pixels/second
         self.speed_pixels_per_second = self.base_speed * self.tile_size
 
-        # Create sprite (colored rectangle for now)
-        self.image = pygame.Surface((self.tile_size - 4, self.tile_size - 4))
-        self.base_color = tuple(map(int, config.get('Colors', 'player').split(',')))
-        self.image.fill(self.base_color)
+        # Create brain emoji sprite
+        emoji_size = self.tile_size - 4
+        brain_emoji = load_emoji('🧠', (emoji_size, emoji_size))
+        self.image = pygame.Surface((emoji_size, emoji_size), pygame.SRCALPHA)
+        self.image.blit(brain_emoji, (0, 0))
+        self.base_image = self.image.copy()
+        self.facing_right = True
 
         # Store spawn position for respawn
         self.spawn_x = x
@@ -144,19 +148,11 @@ class Player(pygame.sprite.Sprite):
             if self.invincibility_timer <= 0:
                 self.is_invincible = False
                 self.invincibility_timer = 0.0
-                # Reset to base color
-                self.image.fill(self.base_color)
+                self.image.set_alpha(255)
             else:
-                # Apply pulsing color effect using sine wave
                 pulse_value = math.sin(self.pulse_timer * 2 * math.pi / self.pulse_frequency)
-                # Map sine wave (-1 to 1) to brightness multiplier (0.6 to 1.4)
-                brightness = 1.0 + (pulse_value * 0.4)
-
-                # Apply brightness to base color
-                pulsed_color = tuple(
-                    min(255, int(c * brightness)) for c in self.base_color
-                )
-                self.image.fill(pulsed_color)
+                alpha = int(255 * (0.8 + pulse_value * 0.2))
+                self.image.set_alpha(alpha)
 
         # If we're moving toward a target
         if self.is_moving and self.target_pos:
@@ -273,16 +269,15 @@ class Player(pygame.sprite.Sprite):
     def _start_movement(self, direction):
         """
         Start movement in a direction toward the next tile center.
-        
+
         Args:
             direction: 'up', 'down', 'left', or 'right'
         """
         self.current_direction = direction
         self.is_moving = True
-        
-        # Calculate target position (center of next tile)
+
         current_tile_x, current_tile_y = self.get_tile_position()
-        
+
         if direction == 'up':
             target_tile_y = current_tile_y - 1
             target_tile_x = current_tile_x
@@ -295,17 +290,30 @@ class Player(pygame.sprite.Sprite):
             target_tile_x = current_tile_x - 1
             target_tile_y = current_tile_y
             self.velocity = Vector2(-self.speed_pixels_per_second, 0)
+            self._update_facing(False)
         elif direction == 'right':
             target_tile_x = current_tile_x + 1
             target_tile_y = current_tile_y
             self.velocity = Vector2(self.speed_pixels_per_second, 0)
-        
-        # Calculate pixel position of target tile center
+            self._update_facing(True)
+
         self.target_pos = Vector2(
             target_tile_x * self.tile_size + self.tile_size // 2,
             target_tile_y * self.tile_size + self.tile_size // 2
         )
     
+    def _update_facing(self, facing_right):
+        """
+        Update brain emoji facing direction.
+
+        Args:
+            facing_right: True if facing right, False if facing left
+        """
+        if facing_right != self.facing_right:
+            self.facing_right = facing_right
+            self.image = pygame.transform.flip(self.base_image, True, False)
+            self.base_image = self.image.copy()
+
     def get_tile_position(self):
         """
         Get current position in tile coordinates.

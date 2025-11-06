@@ -88,6 +88,14 @@ class Enemy(pygame.sprite.Sprite):
         # Initialize behavior (random selection for Phase A5)
         self.behavior = self._assign_random_behavior()
 
+        # Death animation state
+        self.is_dying = False
+        self.death_timer = 0.0
+        self.death_duration = 0.5
+        self.flash_count = 0
+        self.flash_interval = 0.1
+        self.base_image = self.image.copy()
+
     def _assign_random_behavior(self):
         if self.behavior_type_override:
             behavior_type = self.behavior_type_override
@@ -162,19 +170,52 @@ class Enemy(pygame.sprite.Sprite):
             dt: Delta time in seconds
             player_pos: Tuple of (x, y) player tile position
         """
-        # Increment frame counter
+        if self.is_dying:
+            self._update_death_animation(dt)
+            return
+
         self.frame_counter += 1
 
-        # Only update movement every N frames
         if self.frame_counter >= self.update_interval:
             self.frame_counter = 0
-
-            # Get direction from behavior
             direction = self.behavior.update(dt * self.update_interval, player_pos)
 
-            # Move if we have a valid direction
             if direction and self.can_move_in_direction(direction):
                 self.move_in_direction(direction)
+
+    def die(self):
+        """
+        Initiate death animation sequence.
+        Returns enemy type for tracking.
+        """
+        if not self.is_dying:
+            self.is_dying = True
+            self.death_timer = 0.0
+        return self.emoji
+
+    def _update_death_animation(self, dt):
+        """
+        Update flash and fade animation during death.
+
+        Args:
+            dt: Delta time in seconds
+        """
+        self.death_timer += dt
+
+        if self.death_timer >= self.death_duration:
+            self.kill()
+            return
+
+        progress = self.death_timer / self.death_duration
+        flash_phase = int(self.death_timer / self.flash_interval) % 2
+
+        if flash_phase == 0:
+            self.image = self.base_image.copy()
+        else:
+            self.image = pygame.Surface(self.base_image.get_size(), pygame.SRCALPHA)
+
+        alpha = int(255 * (1.0 - progress))
+        self.image.set_alpha(alpha)
 
     def get_tile_position(self):
         """
