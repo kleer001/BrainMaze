@@ -4,6 +4,18 @@ from typing import List, Dict
 
 
 class FactLoader:
+    IRREGULAR_PLURALS = {
+        "mouse": "mice",
+        "goose": "geese",
+        "child": "children",
+        "person": "people",
+        "man": "men",
+        "woman": "women",
+        "tooth": "teeth",
+        "foot": "feet",
+        "ox": "oxen"
+    }
+
     def __init__(self, data_directory: str):
         self.data_directory = Path(data_directory)
         self.emoji_map = self._load_emoji_map()
@@ -28,20 +40,8 @@ class FactLoader:
         if not base_name:
             return ""
 
-        irregular_plurals = {
-            "mouse": "mice",
-            "goose": "geese",
-            "child": "children",
-            "person": "people",
-            "man": "men",
-            "woman": "women",
-            "tooth": "teeth",
-            "foot": "feet",
-            "ox": "oxen"
-        }
-
-        if base_name in irregular_plurals:
-            return irregular_plurals[base_name]
+        if base_name in self.IRREGULAR_PLURALS:
+            return self.IRREGULAR_PLURALS[base_name]
         elif base_name.endswith('s') or base_name.endswith('x') or base_name.endswith('ch') or base_name.endswith('sh'):
             return f"{base_name}es"
         elif base_name.endswith('y') and len(base_name) > 1 and base_name[-2] not in 'aeiou':

@@ -45,17 +45,16 @@ class BrainMaze:
 
         self.clock = pygame.time.Clock()
 
-        self.bg_color = tuple(map(int, self.config.get('Colors', 'background').split(',')))
-        self.wall_color = tuple(map(int, self.config.get('Colors', 'wall').split(',')))
-        self.floor_color = tuple(map(int, self.config.get('Colors', 'floor').split(',')))
-        self.start_color = tuple(map(int, self.config.get('Colors', 'start_tile').split(',')))
-        self.end_color = tuple(map(int, self.config.get('Colors', 'end_tile').split(',')))
+        self.bg_color = self._parse_color('background')
+        self.wall_color = self._parse_color('wall')
+        self.floor_color = self._parse_color('floor')
+        self.start_color = self._parse_color('start_tile')
+        self.end_color = self._parse_color('end_tile')
 
         self.running = True
         self.game_state = GameState(self.config)
 
         self.effects_manager = EffectsManager(self.config, (self.window_width, self.window_height))
-        script_dir = Path(__file__).parent
         data_directory = script_dir.parent / 'assets' / 'data'
         self.fact_loader = FactLoader(str(data_directory))
         display_duration = self.config.getfloat('Facts', 'display_duration')
@@ -67,7 +66,6 @@ class BrainMaze:
         self.frame_counter = 0
 
         grid_size = self.config.getint('Maze', 'grid_size')
-        tile_size = self.config.getint('Maze', 'tile_size')
         min_wall_length = self.config.getint('Maze', 'min_wall_length')
         max_wall_length = self.config.getint('Maze', 'max_wall_length')
         orientation = self.config.get('Maze', 'orientation')
@@ -85,6 +83,9 @@ class BrainMaze:
 
         enemy_configs = self._get_enemy_configs()
         self._spawn_enemies(enemy_configs)
+
+    def _parse_color(self, color_key):
+        return tuple(map(int, self.config.get('Colors', color_key).split(',')))
 
     def _create_maze_generator(self, maze_type, min_wall_length, max_wall_length, orientation):
         if maze_type == 1:
