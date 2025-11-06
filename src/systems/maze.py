@@ -3,9 +3,7 @@ import pygame
 from systems.maze_type_1 import MazeType1
 from systems.maze_validator import MazeValidator
 from systems.maze_looper import loop_maze
-
-WALL = 1
-PATH = 0
+from systems.maze_constants import WALL, PATH
 
 
 class Maze:

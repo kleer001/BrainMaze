@@ -8,7 +8,8 @@ import configparser
 from pathlib import Path
 
 # Import systems
-from systems.maze import Maze, WALL, PATH
+from systems.maze import Maze
+from systems.maze_constants import WALL, PATH
 from systems.collision import CollisionManager
 
 
