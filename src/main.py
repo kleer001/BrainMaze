@@ -83,10 +83,8 @@ class BrainMaze:
         self.player = Player(start_x, start_y, self.config, self.collision_manager)
         self.all_sprites.add(self.player)
 
-        theme_map = self._build_theme_map()
-        facts_by_theme = self._load_facts_for_themes(theme_map)
         enemy_configs = self._get_enemy_configs()
-        self._spawn_enemies(enemy_configs, facts_by_theme)
+        self._spawn_enemies(enemy_configs)
 
     def _create_maze_generator(self, maze_type, min_wall_length, max_wall_length, orientation):
         if maze_type == 1:
@@ -114,20 +112,6 @@ class BrainMaze:
 
         return self.maze.get_end_position()
 
-    def _build_theme_map(self):
-        return {
-            "🐱": self.config.get('Facts', 'theme_cat'),
-            "🐶": self.config.get('Facts', 'theme_dog'),
-            "🐭": self.config.get('Facts', 'theme_mouse'),
-            "🧀": self.config.get('Facts', 'theme_cheese')
-        }
-
-    def _load_facts_for_themes(self, theme_map):
-        facts_by_theme = {}
-        for emoji, theme in theme_map.items():
-            facts_by_theme[emoji] = self.fact_loader.load_theme(theme)
-        return facts_by_theme
-
     def _get_enemy_configs(self):
         return [
             ("🐱", "wanderer"),
@@ -136,11 +120,11 @@ class BrainMaze:
             ("🧀", "patrol")
         ]
 
-    def _spawn_enemies(self, enemy_configs, facts_by_theme):
+    def _spawn_enemies(self, enemy_configs):
         for emoji, behavior in enemy_configs:
             spawn_x, spawn_y = self._find_enemy_spawn_position()
-            theme_facts = facts_by_theme.get(emoji, [])
-            fact = random.choice(theme_facts) if theme_facts else ""
+            facts = self.fact_loader.load_facts_for_emoji(emoji)
+            fact = random.choice(facts) if facts else ""
             enemy = Enemy(spawn_x, spawn_y, self.config, self.collision_manager, emoji, behavior, fact)
             self.enemies.add(enemy)
             self.all_sprites.add(enemy)
