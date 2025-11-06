@@ -1,5 +1,5 @@
 from collections import deque
-from systems.maze import PATH, WALL
+from systems.maze_constants import PATH, WALL
 
 
 class MazeLooper:

@@ -4,7 +4,8 @@ Maze Parameter Editor - Tune generation parameters interactively.
 
 import pygame
 import configparser
-from systems.maze import Maze, WALL, PATH
+from systems.maze import Maze
+from systems.maze_constants import WALL, PATH
 
 
 class ParameterEditor:
