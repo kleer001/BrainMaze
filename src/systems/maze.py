@@ -2,6 +2,7 @@ import random
 import pygame
 from systems.maze_type_1 import MazeType1
 from systems.maze_validator import MazeValidator
+from systems.maze_looper import loop_maze
 
 WALL = 1
 PATH = 0
@@ -26,6 +27,7 @@ class Maze:
 
             validator = MazeValidator(self.grid, self.grid_size)
             if validator.is_connected(self.start_pos, self.end_pos) and validator.is_fully_traversable(self.start_pos):
+                loop_maze(self)
                 return
 
         self.grid = [[PATH] * self.grid_size for _ in range(self.grid_size)]
