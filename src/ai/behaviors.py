@@ -139,40 +139,54 @@ class PatrolBehavior(Behavior):
 
     def _calculate_quadrant_waypoints(self):
         """
-        Calculate waypoints at the centers of the 4 quadrants.
+        Calculate 4 random waypoints spread across different quadrants.
+        Each enemy gets unique waypoints within their quadrant areas.
 
         Returns:
             List of 4 (x, y) waypoint positions
         """
         grid_size = self.maze.grid_size
+        half_size = grid_size // 2
 
-        # Calculate quadrant centers
+        # Define quadrant boundaries
         # Quadrant layout:
         #   0 | 1
         #   -----
         #   2 | 3
-
-        half_size = grid_size // 2
-        quarter_size = grid_size // 4
-
-        # Calculate ideal center positions
-        quadrant_centers = [
-            (quarter_size, quarter_size),          # Top-left
-            (half_size + quarter_size, quarter_size),  # Top-right
-            (quarter_size, half_size + quarter_size),  # Bottom-left
-            (half_size + quarter_size, half_size + quarter_size),  # Bottom-right
+        quadrants = [
+            (0, half_size, 0, half_size),                      # Top-left
+            (half_size, grid_size, 0, half_size),              # Top-right
+            (0, half_size, half_size, grid_size),              # Bottom-left
+            (half_size, grid_size, half_size, grid_size),      # Bottom-right
         ]
 
-        # Find nearest walkable tile to each center
+        # Generate one random waypoint per quadrant
         waypoints = []
-        for center_x, center_y in quadrant_centers:
-            walkable = find_nearest_walkable_tile(self.maze, center_x, center_y, max_search_radius=10)
+        for x_min, x_max, y_min, y_max in quadrants:
+            # Try to find a random walkable position in this quadrant
+            max_attempts = 30
+            found = False
 
-            if walkable:
-                waypoints.append(walkable)
-            else:
-                # Fallback to center if no walkable tile found (shouldn't happen)
-                waypoints.append((center_x, center_y))
+            for _ in range(max_attempts):
+                x = random.randint(x_min, x_max - 1)
+                y = random.randint(y_min, y_max - 1)
+
+                if not self.maze.is_wall(x, y):
+                    waypoints.append((x, y))
+                    found = True
+                    break
+
+            if not found:
+                # Fallback: find nearest walkable from quadrant center
+                center_x = (x_min + x_max) // 2
+                center_y = (y_min + y_max) // 2
+                walkable = find_nearest_walkable_tile(self.maze, center_x, center_y, max_search_radius=10)
+
+                if walkable:
+                    waypoints.append(walkable)
+                else:
+                    # Last resort: use quadrant center (shouldn't happen in valid mazes)
+                    waypoints.append((center_x, center_y))
 
         return waypoints
 
