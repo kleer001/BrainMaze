@@ -16,24 +16,13 @@ class Enemy(pygame.sprite.Sprite):
     Moves through the maze with wall collision detection.
     """
 
-    def __init__(self, x, y, config, collision_manager, emoji="🐱", behavior_type=None):
-        """
-        Initialize enemy at grid position (x, y).
-
-        Args:
-            x: Grid X position (tile coordinates)
-            y: Grid Y position (tile coordinates)
-            config: ConfigParser object with gameplay and enemy settings
-            collision_manager: CollisionManager instance for wall detection
-            emoji: Emoji character to display (default: "🐱")
-            behavior_type: Specific behavior type ('wanderer' or 'patrol'), or None for random
-        """
+    def __init__(self, x, y, config, collision_manager, emoji="🐱", behavior_type=None, fact=""):
         super().__init__()
 
-        # Store references
         self.config = config
         self.collision_manager = collision_manager
         self.behavior_type_override = behavior_type
+        self.fact = fact
 
         # Load tile size from maze config
         self.tile_size = config.getint('Maze', 'tile_size')
@@ -184,14 +173,10 @@ class Enemy(pygame.sprite.Sprite):
                 self.move_in_direction(direction)
 
     def die(self):
-        """
-        Initiate death animation sequence.
-        Returns enemy type for tracking.
-        """
         if not self.is_dying:
             self.is_dying = True
             self.death_timer = 0.0
-        return self.emoji
+        return self.emoji, self.fact
 
     def _update_death_animation(self, dt):
         """
