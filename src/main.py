@@ -1,10 +1,3 @@
-"""
-Brain Maze - Phase A4: Player-Enemy Collision & Respawn System
-Educational fact collection game.
-
-Phase A4: Collision triggers respawn with invincibility.
-"""
-
 import pygame
 import sys
 import random
@@ -12,7 +5,6 @@ import configparser
 import argparse
 from pathlib import Path
 
-# Import entities and systems
 from entities.player import Player
 from entities.enemy import Enemy
 from systems.maze import Maze
@@ -23,6 +15,8 @@ from systems.maze_type_1 import MazeType1
 from systems.maze_type_2 import MazeType2
 from systems.maze_type_3 import MazeType3
 from systems.maze_type_4 import MazeType4
+from systems.fact_loader import FactLoader
+from ui.fact_display import FactDisplay
 
 class BrainMaze:
     """
@@ -76,6 +70,15 @@ class BrainMaze:
         # Effects manager
         self.effects_manager = EffectsManager(self.config, (self.window_width, self.window_height))
 
+        # Fact display system
+        script_dir = Path(__file__).parent
+        data_directory = script_dir.parent / 'assets' / 'data'
+        self.fact_loader = FactLoader(str(data_directory))
+        display_duration = self.config.getfloat('Facts', 'display_duration')
+        tile_size = self.config.getint('Maze', 'tile_size')
+        reserved_height = tile_size * 2
+        self.fact_display = FactDisplay((self.window_width, self.window_height), display_duration, reserved_height)
+
         # Collision checking (every N frames for economy)
         self.collision_check_interval = self.config.getint('Effects', 'collision_check_interval')
         self.frame_counter = 0
@@ -103,9 +106,8 @@ class BrainMaze:
         self.player = Player(start_x, start_y, self.config, self.collision_manager)
         self.all_sprites.add(self.player)
 
-        # Create enemies with variety (Phase A5)
-        # 2 wanderers: cat and dog
-        # 2 patrollers: mouse and cheese
+        facts = self.fact_loader.load_theme('cats')
+
         enemy_configs = [
             ("🐱", "wanderer"),
             ("🐶", "wanderer"),
@@ -113,10 +115,10 @@ class BrainMaze:
             ("🧀", "patrol")
         ]
 
-        for emoji, behavior in enemy_configs:
-            # Find a valid spawn position
+        for index, (emoji, behavior) in enumerate(enemy_configs):
             spawn_x, spawn_y = self._find_enemy_spawn_position()
-            enemy = Enemy(spawn_x, spawn_y, self.config, self.collision_manager, emoji, behavior)
+            fact = facts[index % len(facts)] if facts else ""
+            enemy = Enemy(spawn_x, spawn_y, self.config, self.collision_manager, emoji, behavior, fact)
             self.enemies.add(enemy)
             self.all_sprites.add(enemy)
 
@@ -183,31 +185,22 @@ class BrainMaze:
         self.player.handle_input(keys)
     
     def update(self, dt):
-        """
-        Update game state.
-
-        Args:
-            dt: Delta time in seconds
-        """
-        # Update effects
         self.effects_manager.update(dt)
+        self.fact_display.update(dt)
 
-        # Update player
-        self.player.update(dt)
+        if not self.fact_display.is_active():
+            self.player.update(dt)
 
-        # Update enemies (need player position for AI)
-        player_tile_pos = self.player.get_tile_position()
-        for enemy in self.enemies:
-            enemy.update(dt, player_tile_pos)
+            player_tile_pos = self.player.get_tile_position()
+            for enemy in self.enemies:
+                enemy.update(dt, player_tile_pos)
 
-        # Check collisions every N frames for economy
-        self.frame_counter += 1
-        if self.frame_counter >= self.collision_check_interval:
-            self.frame_counter = 0
-            self._check_collisions()
+            self.frame_counter += 1
+            if self.frame_counter >= self.collision_check_interval:
+                self.frame_counter = 0
+                self._check_collisions()
 
     def _check_collisions(self):
-        """Check for player-enemy collisions."""
         collided_enemies = pygame.sprite.spritecollide(
             self.player,
             self.enemies,
@@ -217,14 +210,13 @@ class BrainMaze:
 
         for enemy in collided_enemies:
             if not enemy.is_dying:
-                enemy_type = enemy.die()
+                enemy_type, fact = enemy.die()
+                if fact:
+                    self.fact_display.show(fact)
     
     def render(self):
-        """Draw everything to screen."""
-        # Clear screen
         self.screen.fill(self.bg_color)
 
-        # Draw maze
         colors = {
             'floor': self.floor_color,
             'wall': self.wall_color,
@@ -233,13 +225,10 @@ class BrainMaze:
         }
         self.maze.render(self.screen, colors)
 
-        # Draw all sprites
         self.all_sprites.draw(self.screen)
-
-        # Draw effects (screen flash, etc.)
         self.effects_manager.render(self.screen)
+        self.fact_display.render(self.screen)
 
-        # Update display
         pygame.display.flip()
 
     def run(self):
