@@ -47,8 +47,10 @@ class Enemy(pygame.sprite.Sprite):
         self.speed = random.randint(speed_min, speed_max)  # Tiles per second
         self.awareness = random.randint(awareness_min, awareness_max)  # Tile radius
 
-        # Movement configuration
-        self.update_interval = config.getint('Movement', 'update_interval')  # frames
+        # Movement configuration - calculate update_interval based on individual speed
+        # Higher speed = lower update_interval (moves more frequently)
+        fps = config.getint('Gameplay', 'fps')
+        self.update_interval = fps // self.speed  # frames between moves
         self.frame_counter = 0
 
         # Position tracking
