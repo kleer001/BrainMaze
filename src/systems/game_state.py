@@ -11,7 +11,7 @@ class GameState:
 
         self.current_level = 1
         self.enemies_captured_this_level = 0
-        self.max_enemies_per_level = 5
+        self.max_enemies_per_level = 3
         self.max_enemies_at_once = 3
         self.captured_facts = []
 
