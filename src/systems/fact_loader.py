@@ -20,6 +20,48 @@ class FactLoader:
         self.data_directory = Path(data_directory)
         self.emoji_map = self._load_emoji_map()
 
+    def get_available_fact_types(self) -> List[str]:
+        fact_types = []
+        for json_file in self.data_directory.glob("*.json"):
+            if json_file.name != "emoji_list.json":
+                fact_types.append(json_file.stem)
+        return sorted(fact_types)
+
+    def get_emoji_for_fact_type(self, fact_type: str) -> str:
+        singular_forms = {
+            'mice': 'mouse',
+            'geese': 'goose',
+            'children': 'child',
+            'people': 'person',
+            'men': 'man',
+            'women': 'woman',
+            'teeth': 'tooth',
+            'feet': 'foot',
+            'oxen': 'ox'
+        }
+
+        singular = singular_forms.get(fact_type)
+        if not singular:
+            if fact_type.endswith('ies'):
+                singular = fact_type[:-3] + 'y'
+            elif fact_type.endswith('ves'):
+                if fact_type.endswith('aves'):
+                    singular = fact_type[:-3] + 'e'
+                else:
+                    singular = fact_type[:-3] + 'f'
+            elif fact_type.endswith('es'):
+                singular = fact_type[:-2]
+            elif fact_type.endswith('s'):
+                singular = fact_type[:-1]
+            else:
+                singular = fact_type
+
+        for emoji, name in self.emoji_map.items():
+            if name == singular:
+                return emoji
+
+        return '❓'
+
     def _load_emoji_map(self) -> Dict[str, str]:
         emoji_list_path = self.data_directory / "emoji_list.json"
 

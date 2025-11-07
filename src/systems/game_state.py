@@ -15,7 +15,7 @@ class GameState:
         self.max_enemies_at_once = 3
         self.captured_facts = []
 
-        self.fact_types = ['cats', 'dogs', 'mice', 'cheese']
+        self.fact_types = self.fact_loader.get_available_fact_types()
         self.fact_type_queue = []
         self.current_fact_type = self._next_fact_type()
 

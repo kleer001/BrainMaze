@@ -68,13 +68,6 @@ class BrainMaze:
         self.collision_check_interval = self.config.getint('Effects', 'collision_check_interval')
         self.frame_counter = 0
 
-        self.fact_type_emoji_map = {
-            'cats': '🐱',
-            'dogs': '🐶',
-            'mice': '🐭',
-            'cheese': '🧀'
-        }
-
         self._initialize_level()
 
     def _parse_color(self, color_key):
@@ -135,7 +128,7 @@ class BrainMaze:
         if not self.available_facts:
             return
 
-        emoji = self.fact_type_emoji_map.get(self.game_state.current_fact_type, '🐱')
+        emoji = self.fact_loader.get_emoji_for_fact_type(self.game_state.current_fact_type)
         behavior = random.choice(['wanderer', 'patrol'])
         spawn_x, spawn_y = self._find_enemy_spawn_position()
         fact = self.available_facts.pop()
