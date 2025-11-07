@@ -60,6 +60,9 @@ class FactLoader:
 
         return self._load_theme(theme_name)
 
+    def load_facts_for_fact_type(self, fact_type: str) -> List[str]:
+        return self._load_theme(fact_type)
+
     def _load_theme(self, theme_name: str) -> List[str]:
         theme_path = self.data_directory / f"{theme_name}.json"
 
