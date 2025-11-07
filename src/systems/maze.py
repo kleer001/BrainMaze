@@ -1,5 +1,6 @@
 import random
 import pygame
+import colorsys
 from systems.maze_type_1 import MazeType1
 from systems.maze_validator import MazeValidator
 from systems.maze_looper import loop_maze
@@ -16,6 +17,7 @@ class Maze:
         self.grid = []
         self.start_pos = None
         self.end_pos = None
+        self.wall_colors = self._generate_wall_colors()
         self._generate()
 
     def _generate(self):
@@ -53,6 +55,24 @@ class Maze:
         x, y = pos
         return 0 <= x < self.grid_size and 0 <= y < self.grid_size
 
+    def _generate_wall_colors(self):
+        """Generate 12 color pairs (bright border, dark fill) from 12 hues"""
+        colors = []
+        for i in range(12):
+            hue = i / 12.0  # Evenly spaced hues around color wheel
+
+            # Bright border: high saturation, high value
+            bright_rgb = colorsys.hsv_to_rgb(hue, 0.85, 0.95)
+            bright_color = tuple(int(c * 255) for c in bright_rgb)
+
+            # Dark fill: high saturation, lower value
+            dark_rgb = colorsys.hsv_to_rgb(hue, 0.80, 0.45)
+            dark_color = tuple(int(c * 255) for c in dark_rgb)
+
+            colors.append((bright_color, dark_color))
+
+        return colors
+
     def get_start_position(self):
         return self.start_pos
 
@@ -71,8 +91,30 @@ class Maze:
         for y in range(self.grid_size):
             for x in range(self.grid_size):
                 rect = self._create_tile_rect(x, y)
-                color = self._get_tile_color((x, y), colors)
-                pygame.draw.rect(surface, color, rect)
+
+                if self.grid[y][x] == WALL:
+                    # Get color pair for this wall
+                    bright_color, dark_color = self._get_wall_color_pair(x, y)
+
+                    # Draw bright border (full rectangle)
+                    pygame.draw.rect(surface, bright_color, rect)
+
+                    # Draw dark fill (inset by 8 pixels)
+                    border_width = 8
+                    inner_rect = pygame.Rect(
+                        rect.x + border_width,
+                        rect.y + border_width,
+                        rect.width - (border_width * 2),
+                        rect.height - (border_width * 2)
+                    )
+
+                    # Only draw inner rect if there's room for it
+                    if inner_rect.width > 0 and inner_rect.height > 0:
+                        pygame.draw.rect(surface, dark_color, inner_rect)
+                else:
+                    # Non-wall tiles use original color system
+                    color = self._get_tile_color((x, y), colors)
+                    pygame.draw.rect(surface, color, rect)
 
     def _create_tile_rect(self, x, y):
         return pygame.Rect(x * self.tile_size, y * self.tile_size,
@@ -83,3 +125,10 @@ class Maze:
         if self.grid[y][x] == WALL:
             return colors['wall']
         return colors['floor']
+
+    def _get_wall_color_pair(self, x, y):
+        """Get the color pair (bright, dark) for a wall at position (x, y)"""
+        # Use position to deterministically select from the 12 hues
+        # This creates a nice varied pattern across the maze
+        color_index = (x * 7 + y * 11) % 12
+        return self.wall_colors[color_index]
