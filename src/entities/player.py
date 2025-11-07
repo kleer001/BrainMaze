@@ -52,8 +52,12 @@ class Player(pygame.sprite.Sprite):
         self.corner_forgiveness = config.getint('Player', 'corner_forgiveness')
         self.invincibility_duration = config.getfloat('Player', 'invincibility_duration')
         self.pulse_frequency = config.getfloat('Effects', 'invincibility_pulse_frequency')
+        self.freeze_duration = config.getfloat('Capture', 'freeze_duration')
+        self.flicker_frequency = config.getfloat('Capture', 'flicker_frequency')
+        self.glow_intensity = config.getfloat('Capture', 'glow_intensity')
+        glow_color_str = config.get('Capture', 'glow_color')
+        self.glow_color = tuple(map(int, glow_color_str.split(',')))
 
-        # Convert speed from tiles/second to pixels/second
         self.speed_pixels_per_second = self.base_speed * self.tile_size
 
         # Create brain emoji sprite
@@ -88,21 +92,19 @@ class Player(pygame.sprite.Sprite):
         self.buffered_direction = None
         self.buffer_timer = 0.0
 
-        # Invincibility state
         self.is_invincible = False
         self.invincibility_timer = 0.0
         self.pulse_timer = 0.0
+
+        self.is_frozen = False
+        self.freeze_timer = 0.0
+        self.flicker_timer = 0.0
         
     def handle_input(self, keys):
-        """
-        Process keyboard input with buffering.
-        Only accepts new direction when not currently committed to a movement.
-        
-        Args:
-            keys: pygame.key.get_pressed() result
-        """
-        # Import key constants
         from pygame import K_w, K_s, K_a, K_d, K_UP, K_DOWN, K_LEFT, K_RIGHT
+
+        if self.is_frozen:
+            return
         
         # Determine desired direction from input
         desired_direction = None
@@ -133,14 +135,21 @@ class Player(pygame.sprite.Sprite):
                 self.buffer_timer = self.input_buffer_duration
     
     def update(self, dt):
-        """
-        Update player position with grid-snapped movement.
-        Player commits to full tile movements.
+        if self.is_frozen:
+            self.freeze_timer -= dt
+            self.flicker_timer += dt
 
-        Args:
-            dt: Delta time in seconds
-        """
-        # Update invincibility timer
+            if self.freeze_timer <= 0:
+                self.is_frozen = False
+                self.freeze_timer = 0.0
+                self.image.set_alpha(255)
+            else:
+                flicker_cycle = 1.0 / self.flicker_frequency
+                flicker_phase = (self.flicker_timer % flicker_cycle) / flicker_cycle
+                alpha = int(255 * (0.3 + 0.7 * abs(math.sin(flicker_phase * math.pi))))
+                self.image.set_alpha(alpha)
+            return
+
         if self.is_invincible:
             self.invincibility_timer -= dt
             self.pulse_timer += dt
@@ -353,10 +362,16 @@ class Player(pygame.sprite.Sprite):
         self.pulse_timer = 0.0
 
     def can_take_damage(self):
-        """
-        Check if player can take damage (not invincible).
-
-        Returns:
-            bool: True if player can take damage
-        """
         return not self.is_invincible
+
+    def freeze(self):
+        self.is_frozen = True
+        self.freeze_timer = self.freeze_duration
+        self.flicker_timer = 0.0
+
+        self.velocity = Vector2(0, 0)
+        self.is_moving = False
+        self.target_pos = None
+        self.current_direction = None
+        self.buffered_direction = None
+        self.buffer_timer = 0.0

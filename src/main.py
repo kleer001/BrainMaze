@@ -17,9 +17,10 @@ from systems.maze_type_3 import MazeType3
 from systems.maze_type_4 import MazeType4
 from systems.fact_loader import FactLoader
 from ui.fact_display import FactDisplay
+from ui.level_complete import LevelCompleteScreen
 
 class BrainMaze:
-    def __init__(self, maze_type=1):
+    def __init__(self):
         pygame.init()
 
         self.config = configparser.ConfigParser()
@@ -52,28 +53,39 @@ class BrainMaze:
         self.end_color = self._parse_color('end_tile')
 
         self.running = True
-        self.game_state = GameState(self.config)
 
-        self.effects_manager = EffectsManager(self.config, (self.window_width, self.window_height))
         data_directory = script_dir.parent / 'assets' / 'data'
         self.fact_loader = FactLoader(str(data_directory))
+        self.game_state = GameState(self.config, self.fact_loader)
+
+        self.effects_manager = EffectsManager(self.config, (self.window_width, self.window_height))
         display_duration = self.config.getfloat('Facts', 'display_duration')
         tile_size = self.config.getint('Maze', 'tile_size')
         reserved_height = tile_size * 2
         self.fact_display = FactDisplay((self.window_width, self.window_height), display_duration, reserved_height)
+        self.level_complete_screen = LevelCompleteScreen((self.window_width, self.window_height))
 
         self.collision_check_interval = self.config.getint('Effects', 'collision_check_interval')
         self.frame_counter = 0
 
+        self._initialize_level()
+
+    def _parse_color(self, color_key):
+        return tuple(map(int, self.config.get('Colors', color_key).split(',')))
+
+    def _initialize_level(self):
         grid_size = self.config.getint('Maze', 'grid_size')
         min_wall_length = self.config.getint('Maze', 'min_wall_length')
         max_wall_length = self.config.getint('Maze', 'max_wall_length')
         orientation = self.config.get('Maze', 'orientation')
         max_attempts = self.config.getint('Maze', 'max_generation_attempts')
+        tile_size = self.config.getint('Maze', 'tile_size')
 
+        maze_type = random.randint(1, 4)
         generator = self._create_maze_generator(maze_type, min_wall_length, max_wall_length, orientation)
         self.maze = Maze(grid_size, tile_size, min_wall_length, max_wall_length, orientation, max_attempts, generator)
         self.collision_manager = CollisionManager(self.maze, self.config)
+
         self.all_sprites = pygame.sprite.Group()
         self.enemies = pygame.sprite.Group()
 
@@ -81,11 +93,11 @@ class BrainMaze:
         self.player = Player(start_x, start_y, self.config, self.collision_manager)
         self.all_sprites.add(self.player)
 
-        enemy_configs = self._get_enemy_configs()
-        self._spawn_enemies(enemy_configs)
+        self.available_facts = self.fact_loader.load_facts_for_fact_type(self.game_state.current_fact_type).copy()
+        random.shuffle(self.available_facts)
 
-    def _parse_color(self, color_key):
-        return tuple(map(int, self.config.get('Colors', color_key).split(',')))
+        for _ in range(self.game_state.max_enemies_at_once):
+            self._spawn_enemy()
 
     def _create_maze_generator(self, maze_type, min_wall_length, max_wall_length, orientation):
         if maze_type == 1:
@@ -97,7 +109,6 @@ class BrainMaze:
         elif maze_type == 4:
             return MazeType4(orientation)
         else:
-            print(f"Warning: Unknown maze type {maze_type}, defaulting to type 1")
             return MazeType1(min_wall_length, max_wall_length, orientation)
 
     def _find_enemy_spawn_position(self):
@@ -113,22 +124,18 @@ class BrainMaze:
 
         return self.maze.get_end_position()
 
-    def _get_enemy_configs(self):
-        return [
-            ("🐱", "wanderer"),
-            ("🐶", "wanderer"),
-            ("🐭", "patrol"),
-            ("🧀", "patrol")
-        ]
+    def _spawn_enemy(self):
+        if not self.available_facts:
+            return
 
-    def _spawn_enemies(self, enemy_configs):
-        for emoji, behavior in enemy_configs:
-            spawn_x, spawn_y = self._find_enemy_spawn_position()
-            facts = self.fact_loader.load_facts_for_emoji(emoji)
-            fact = random.choice(facts) if facts else ""
-            enemy = Enemy(spawn_x, spawn_y, self.config, self.collision_manager, emoji, behavior, fact)
-            self.enemies.add(enemy)
-            self.all_sprites.add(enemy)
+        emoji = self.fact_loader.get_emoji_for_fact_type(self.game_state.current_fact_type)
+        behavior = random.choice(['wanderer', 'patrol'])
+        spawn_x, spawn_y = self._find_enemy_spawn_position()
+        fact = self.available_facts.pop()
+
+        enemy = Enemy(spawn_x, spawn_y, self.config, self.collision_manager, emoji, behavior, fact)
+        self.enemies.add(enemy)
+        self.all_sprites.add(enemy)
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -137,17 +144,27 @@ class BrainMaze:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
+                elif event.key == pygame.K_SPACE:
+                    if self.level_complete_screen.is_active():
+                        if self.game_state.is_game_complete():
+                            self.running = False
+                        else:
+                            self.level_complete_screen.hide()
+                            self._initialize_level()
 
-        keys = pygame.key.get_pressed()
-        self.player.handle_input(keys)
+        if not self.level_complete_screen.is_active():
+            keys = pygame.key.get_pressed()
+            self.player.handle_input(keys)
     
     def update(self, dt):
+        if self.level_complete_screen.is_active():
+            return
+
         self.effects_manager.update(dt)
         self.fact_display.update(dt)
+        self.player.update(dt)
 
-        if not self.fact_display.is_active():
-            self.player.update(dt)
-
+        if not self.fact_display.is_active() and not self.player.is_frozen:
             player_tile_pos = self.player.get_tile_position()
             for enemy in self.enemies:
                 enemy.update(dt, player_tile_pos)
@@ -156,6 +173,15 @@ class BrainMaze:
             if self.frame_counter >= self.collision_check_interval:
                 self.frame_counter = 0
                 self._check_collisions()
+
+            if self.game_state.should_spawn_enemy(len(self.enemies)):
+                self._spawn_enemy()
+
+            if self.game_state.is_level_complete() and not self.fact_display.is_active():
+                facts = self.game_state.advance_level()
+                progress_text = self.game_state.get_progress_text()
+                is_game_over = self.game_state.is_game_complete()
+                self.level_complete_screen.show(facts, progress_text, is_game_over)
 
     def _check_collisions(self):
         collided_enemies = pygame.sprite.spritecollide(
@@ -169,22 +195,28 @@ class BrainMaze:
             if not enemy.is_dying:
                 enemy_type, fact = enemy.die()
                 if fact:
+                    self.game_state.enemy_captured(fact)
                     self.fact_display.show(fact)
+                    self.player.freeze()
+                    self.effects_manager.trigger_capture_glow(self.player.rect.centerx, self.player.rect.centery)
     
     def render(self):
-        self.screen.fill(self.bg_color)
+        if self.level_complete_screen.is_active():
+            self.level_complete_screen.render(self.screen)
+        else:
+            self.screen.fill(self.bg_color)
 
-        colors = {
-            'floor': self.floor_color,
-            'wall': self.wall_color,
-            'start': self.start_color,
-            'end': self.end_color
-        }
-        self.maze.render(self.screen, colors)
+            colors = {
+                'floor': self.floor_color,
+                'wall': self.wall_color,
+                'start': self.start_color,
+                'end': self.end_color
+            }
+            self.maze.render(self.screen, colors)
 
-        self.all_sprites.draw(self.screen)
-        self.effects_manager.render(self.screen)
-        self.fact_display.render(self.screen)
+            self.all_sprites.draw(self.screen)
+            self.effects_manager.render(self.screen)
+            self.fact_display.render(self.screen)
 
         pygame.display.flip()
 
@@ -200,17 +232,7 @@ class BrainMaze:
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Brain Maze - Educational fact collection game')
-    parser.add_argument(
-        '--maze-type', '-m',
-        type=int,
-        default=1,
-        choices=[1, 2, 3, 4],
-        help='Maze generation algorithm: 1=Scattered walls, 2=Binary tree, 3=Recursive backtracking, 4=Sidewinder'
-    )
-    args = parser.parse_args()
-
-    game = BrainMaze(maze_type=args.maze_type)
+    game = BrainMaze()
     game.run()
 
 
