@@ -1,24 +1,11 @@
 import json
 from pathlib import Path
-from typing import List, Dict
+from typing import List
 
 
 class FactLoader:
-    IRREGULAR_PLURALS = {
-        "mouse": "mice",
-        "goose": "geese",
-        "child": "children",
-        "person": "people",
-        "man": "men",
-        "woman": "women",
-        "tooth": "teeth",
-        "foot": "feet",
-        "ox": "oxen"
-    }
-
     def __init__(self, data_directory: str):
         self.data_directory = Path(data_directory)
-        self.emoji_map = self._load_emoji_map()
 
     def get_available_fact_types(self) -> List[str]:
         fact_types = []
@@ -28,81 +15,31 @@ class FactLoader:
         return sorted(fact_types)
 
     def get_emoji_for_fact_type(self, fact_type: str) -> str:
-        singular_forms = {
-            'mice': 'mouse',
-            'geese': 'goose',
-            'children': 'child',
-            'people': 'person',
-            'men': 'man',
-            'women': 'woman',
-            'teeth': 'tooth',
-            'feet': 'foot',
-            'oxen': 'ox'
+        """Get emoji for a fact type. Fact type names should match emoji mappings exactly."""
+        emoji_mappings = {
+            'apples': '🍎',
+            'bananas': '🍌',
+            'bears': '🐻',
+            'books': '📖',
+            'cats': '🐱',
+            'cheese': '🧀',
+            'dogs': '🐶',
+            'lightning': '⚡',
+            'mice': '🐭',
+            'pizza': '🍕',
+            'rainbows': '🌈',
+            'sharks': '🦈',
+            'stars': '⭐'
         }
 
-        singular = singular_forms.get(fact_type)
-        if not singular:
-            if fact_type.endswith('ies'):
-                singular = fact_type[:-3] + 'y'
-            elif fact_type.endswith('ves'):
-                if fact_type.endswith('aves'):
-                    singular = fact_type[:-3] + 'e'
-                else:
-                    singular = fact_type[:-3] + 'f'
-            elif fact_type.endswith('es'):
-                singular = fact_type[:-2]
-            elif fact_type.endswith('s'):
-                singular = fact_type[:-1]
-            else:
-                singular = fact_type
+        if fact_type in emoji_mappings:
+            return emoji_mappings[fact_type]
 
-        for emoji, name in self.emoji_map.items():
-            if name == singular:
-                return emoji
-
+        print(f"Warning: No emoji found for fact_type='{fact_type}'")
         return '❓'
 
-    def _load_emoji_map(self) -> Dict[str, str]:
-        emoji_list_path = self.data_directory / "emoji_list.json"
-
-        if not emoji_list_path.exists():
-            return {}
-
-        with open(emoji_list_path) as file:
-            data = json.load(file)
-
-        emoji_map = {}
-        for category in data.values():
-            emoji_map.update(category)
-
-        return emoji_map
-
-    def get_theme_for_emoji(self, emoji: str) -> str:
-        base_name = self.emoji_map.get(emoji, "")
-        if not base_name:
-            return ""
-
-        if base_name in self.IRREGULAR_PLURALS:
-            return self.IRREGULAR_PLURALS[base_name]
-        elif base_name.endswith('s') or base_name.endswith('x') or base_name.endswith('ch') or base_name.endswith('sh'):
-            return f"{base_name}es"
-        elif base_name.endswith('y') and len(base_name) > 1 and base_name[-2] not in 'aeiou':
-            return f"{base_name[:-1]}ies"
-        elif base_name.endswith('f'):
-            return f"{base_name[:-1]}ves"
-        elif base_name.endswith('fe'):
-            return f"{base_name[:-2]}ves"
-        else:
-            return f"{base_name}s"
-
-    def load_facts_for_emoji(self, emoji: str) -> List[str]:
-        theme_name = self.get_theme_for_emoji(emoji)
-        if not theme_name:
-            return []
-
-        return self._load_theme(theme_name)
-
     def load_facts_for_fact_type(self, fact_type: str) -> List[str]:
+        """Load all facts for a given fact type from its JSON file."""
         return self._load_theme(fact_type)
 
     def _load_theme(self, theme_name: str) -> List[str]:
