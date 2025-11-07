@@ -174,8 +174,9 @@ class BrainMaze:
                 self.frame_counter = 0
                 self._check_collisions()
 
-            if self.game_state.should_spawn_enemy(len(self.enemies)):
-                self._spawn_enemy()
+            # Removed respawn logic - enemies are eliminated when hit, not replaced
+            # if self.game_state.should_spawn_enemy(len(self.enemies)):
+            #     self._spawn_enemy()
 
             if self.game_state.is_level_complete() and not self.fact_display.is_active():
                 facts = self.game_state.advance_level()

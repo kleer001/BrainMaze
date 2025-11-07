@@ -28,6 +28,19 @@ class FactLoader:
         return sorted(fact_types)
 
     def get_emoji_for_fact_type(self, fact_type: str) -> str:
+        # Direct emoji mappings for common fact types (fallback/override)
+        direct_mappings = {
+            'apples': '🍎',
+            'bananas': '🍌',
+            'cheese': '🧀',
+            'cats': '🐱',
+            'dogs': '🐶'
+        }
+
+        # Check direct mapping first
+        if fact_type in direct_mappings:
+            return direct_mappings[fact_type]
+
         singular_forms = {
             'mice': 'mouse',
             'geese': 'goose',
@@ -60,6 +73,8 @@ class FactLoader:
             if name == singular:
                 return emoji
 
+        print(f"Warning: No emoji found for fact_type='{fact_type}', singular='{singular}'")
+        print(f"Available emoji mappings: {list(self.emoji_map.items())[:5]}...")
         return '❓'
 
     def _load_emoji_map(self) -> Dict[str, str]:
