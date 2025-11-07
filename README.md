@@ -15,11 +15,11 @@ An educational maze game where you play as a brain navigating procedurally gener
 - 🧠 **Play as a Brain** - Navigate mazes in real-time
 - 🏃 **Chase & Capture** - Hunt down roaming facts to learn from them
 - 🐱 **Educational Themes** - Learn facts about cats, bears, vehicles, and more
-- 🤖 **Smart AI** - Enemies with randomized behaviors and personalities
-- ✨ **Learning Moments** - Freeze and glow after each capture while you read
-- ⚡ **Blessings & Curses** - Powerups that help or hinder your chase
-- 🎨 **Procedural Mazes** - Every level is unique
-- 🏆 **Progressive Difficulty** - Scales with player skill
+- 🤖 **Smart AI** - Enemies with varied movement behaviors (wander, patrol)
+- ✨ **Learning Moments** - Display facts after each capture
+- 🎨 **Procedural Mazes** - 4 different maze generation algorithms with mirroring
+- 🏆 **Progressive Levels** - Complete levels by capturing 3 facts each
+- 📊 **Level Progress Tracking** - Track your fact collection journey
 
 ---
 
@@ -33,14 +33,14 @@ An educational maze game where you play as a brain navigating procedurally gener
 
 ```bash
 # Clone the repository
-git clone https://github.com/Kleer001/brain-maze.git
-cd brain-maze
+git clone https://github.com/kleer001/BrainMaze.git
+cd BrainMaze
 
 # Install dependencies
 pip install pygame
 
 # Run the game
-python main.py
+python src/main.py
 ```
 
 ---
@@ -49,23 +49,33 @@ python main.py
 
 - **WASD / Arrow Keys** - Move your brain
 - **ESC** - Pause menu
+- **SPACE** - Continue after level complete
 
-**Goal:** Chase and capture all the roaming facts! When you catch one, you'll freeze and glow for a moment while learning a new fact.
+**Goal:** Chase and capture roaming facts to learn! Each level requires capturing 3 facts. Navigate the maze strategically to catch all the wandering enemies.
 
 ---
 
 ## 🛠️ Development Status
 
-**Current Phase:** 🏗️ Phase A - Core Movement & Chase Mechanics
+**Current Phase:** 🎯 Phase B - Capture Mechanics & Polish
 
 | Phase | Status | Features |
 |-------|--------|----------|
-| **A** | 🏗️ In Progress | Player movement, maze generation, chase AI |
-| **B** | ⏳ Planned | Capture mechanics & fact display |
-| **C** | ⏳ Planned | Visual polish & powerups |
-| **D** | ⏳ Planned | Level progression & themes |
+| **A** | ✅ Complete | Player movement, maze generation, enemy AI behaviors |
+| **B** | ✅ Complete | Capture mechanics, fact display, level progression |
+| **C** | ⏳ Planned | Visual effects & powerups |
+| **D** | ⏳ Planned | Additional polish & themes |
 
-See [DEVELOPER_ROADMAP.md](DEVELOPER_ROADMAP.md) for detailed implementation plan.
+**Implemented Features:**
+- ✅ Player movement with wall collision
+- ✅ 4 procedurally generated maze types with symmetry
+- ✅ Enemy AI with wander and patrol behaviors
+- ✅ Fact capture and display system
+- ✅ Level complete screen with fact summary
+- ✅ Multiple educational themes (loaded from JSON)
+- ✅ Progress tracking across levels
+
+See [Dev_Roadmap.md](Dev_Roadmap.md) for detailed implementation plan.
 
 ---
 
@@ -79,14 +89,15 @@ See [DEVELOPER_ROADMAP.md](DEVELOPER_ROADMAP.md) for detailed implementation pla
 ## 🎨 Project Structure
 
 ```
-brain_maze/
-├── main.py              # Game loop
-├── entities/            # Player, enemies, powerups
-├── systems/             # Maze, collision, effects
-├── ui/                  # HUD, fact display
-├── ai/                  # Behaviors, pathfinding
-├── config/              # INI configuration files
-└── assets/data/         # Fact databases (JSON)
+BrainMaze/
+├── src/
+│   ├── main.py              # Game loop & main entry point
+│   ├── entities/            # Player, enemies
+│   ├── systems/             # Maze generators, collision, effects, game state
+│   ├── ui/                  # Fact display, level complete screen
+│   └── config/              # INI configuration files
+├── assets/data/         # Educational fact databases (JSON)
+└── tests/               # Test suites for maze generation & behaviors
 ```
 
 ---
