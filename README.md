@@ -17,7 +17,6 @@ An educational maze game where you play as a brain navigating procedurally gener
 - 🐱 **Educational Themes** - Learn facts about cats, bears, vehicles, and more
 - 🤖 **Smart AI** - Enemies with varied movement behaviors (wander, patrol)
 - ✨ **Learning Moments** - Display facts after each capture
-- 💣 **Mine System** - Trap enemies with limited mine inventory
 - 🎨 **Procedural Mazes** - 4 different maze generation algorithms with mirroring
 - 🏆 **Progressive Levels** - Complete levels by capturing 3 facts each
 - 📊 **Level Progress Tracking** - Track your fact collection journey
@@ -49,10 +48,10 @@ python src/main.py
 ## 🎯 How to Play
 
 - **WASD / Arrow Keys** - Move your brain
-- **SPACE** - Place a mine to trap enemies
 - **ESC** - Pause menu
+- **SPACE** - Continue after level complete
 
-**Goal:** Chase and capture roaming facts to learn! Each level requires capturing 3 facts. Use your limited mine inventory strategically to trap enemies and complete your fact collection.
+**Goal:** Chase and capture roaming facts to learn! Each level requires capturing 3 facts. Navigate the maze strategically to catch all the wandering enemies.
 
 ---
 
@@ -64,8 +63,8 @@ python src/main.py
 |-------|--------|----------|
 | **A** | ✅ Complete | Player movement, maze generation, enemy AI behaviors |
 | **B** | ✅ Complete | Capture mechanics, fact display, level progression |
-| **C** | 🏗️ In Progress | Visual effects, mine system |
-| **D** | ⏳ Planned | Additional polish & powerups |
+| **C** | ⏳ Planned | Visual effects & powerups |
+| **D** | ⏳ Planned | Additional polish & themes |
 
 **Implemented Features:**
 - ✅ Player movement with wall collision
@@ -73,7 +72,6 @@ python src/main.py
 - ✅ Enemy AI with wander and patrol behaviors
 - ✅ Fact capture and display system
 - ✅ Level complete screen with fact summary
-- ✅ Mine placement system with limited inventory
 - ✅ Multiple educational themes (loaded from JSON)
 - ✅ Progress tracking across levels
 
