@@ -6,9 +6,6 @@ class GameState:
         self.config = config
         self.fact_loader = fact_loader
 
-        self.max_mines = config.getint('Mines', 'max_inventory')
-        self.mine_count = self.max_mines
-
         self.current_level = 1
         self.enemies_captured_this_level = 0
         self.max_enemies_per_level = 3
@@ -61,19 +58,3 @@ class GameState:
         self.captured_facts = []
         self.current_fact_type = self._next_fact_type()
         return facts_to_display
-
-    def reset_mines(self):
-        self.mine_count = self.max_mines
-
-    def get_mine_count(self):
-        return self.mine_count
-
-    def add_mine(self):
-        if self.mine_count < self.max_mines:
-            self.mine_count += 1
-
-    def remove_mine(self):
-        if self.mine_count > 0:
-            self.mine_count -= 1
-            return True
-        return False

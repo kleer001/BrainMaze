@@ -59,35 +59,6 @@ def test_maze_generation():
     print("  ✓ Path connectivity verified")
     print()
 
-def test_game_state():
-    """Test GameState mine counter."""
-    print("Testing GameState mine counter...")
-
-    # Create config
-    config = configparser.ConfigParser()
-    config.add_section('Mines')
-    config.set('Mines', 'max_inventory', '3')
-
-    # Create game state
-    from systems.game_state import GameState
-    game_state = GameState(config)
-
-    assert game_state.get_mine_count() == 3, "Should start with 3 mines"
-    print(f"  Initial mine count: {game_state.get_mine_count()}")
-
-    # Remove a mine
-    game_state.remove_mine()
-    assert game_state.get_mine_count() == 2, "Should have 2 mines after removal"
-    print(f"  After removal: {game_state.get_mine_count()}")
-
-    # Reset mines
-    game_state.reset_mines()
-    assert game_state.get_mine_count() == 3, "Should have 3 mines after reset"
-    print(f"  After reset: {game_state.get_mine_count()}")
-
-    print("  ✓ GameState mine counter working")
-    print()
-
 def visualize_maze():
     """Visualize a sample maze in ASCII."""
     print("Sample Pac-Man style maze (20x20, 20% walls):")
@@ -124,7 +95,6 @@ if __name__ == '__main__':
     print()
 
     test_maze_generation()
-    test_game_state()
     visualize_maze()
 
     print("=" * 60)
