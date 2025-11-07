@@ -28,13 +28,21 @@ class FactLoader:
         return sorted(fact_types)
 
     def get_emoji_for_fact_type(self, fact_type: str) -> str:
-        # Direct emoji mappings for common fact types (fallback/override)
+        # Direct emoji mappings for all fact types (fallback/override)
         direct_mappings = {
             'apples': '🍎',
             'bananas': '🍌',
-            'cheese': '🧀',
+            'bears': '🐻',
+            'books': '📖',
             'cats': '🐱',
-            'dogs': '🐶'
+            'cheese': '🧀',
+            'dogs': '🐶',
+            'lightning': '⚡',
+            'mice': '🐭',
+            'pizza': '🍕',
+            'rainbows': '🌈',
+            'sharks': '🦈',
+            'stars': '⭐'
         }
 
         # Check direct mapping first
