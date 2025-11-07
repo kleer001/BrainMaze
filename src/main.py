@@ -144,10 +144,9 @@ class BrainMaze:
     def update(self, dt):
         self.effects_manager.update(dt)
         self.fact_display.update(dt)
+        self.player.update(dt)
 
-        if not self.fact_display.is_active():
-            self.player.update(dt)
-
+        if not self.fact_display.is_active() and not self.player.is_frozen:
             player_tile_pos = self.player.get_tile_position()
             for enemy in self.enemies:
                 enemy.update(dt, player_tile_pos)
@@ -170,6 +169,8 @@ class BrainMaze:
                 enemy_type, fact = enemy.die()
                 if fact:
                     self.fact_display.show(fact)
+                    self.player.freeze()
+                    self.effects_manager.trigger_capture_glow(self.player.rect.centerx, self.player.rect.centery)
     
     def render(self):
         self.screen.fill(self.bg_color)
