@@ -20,7 +20,7 @@ from ui.fact_display import FactDisplay
 from ui.level_complete import LevelCompleteScreen
 
 class BrainMaze:
-    def __init__(self):
+    def __init__(self, maze_type=None):
         pygame.init()
 
         self.config = configparser.ConfigParser()
@@ -53,6 +53,7 @@ class BrainMaze:
         self.end_color = self._parse_color('end_tile')
 
         self.running = True
+        self.debug_maze_type = maze_type  # Store for debugging
 
         data_directory = script_dir.parent / 'assets' / 'data'
         self.fact_loader = FactLoader(str(data_directory))
@@ -81,7 +82,8 @@ class BrainMaze:
         max_attempts = self.config.getint('Maze', 'max_generation_attempts')
         tile_size = self.config.getint('Maze', 'tile_size')
 
-        maze_type = random.randint(1, 4)
+        # Use debug_maze_type if specified, otherwise random
+        maze_type = self.debug_maze_type if self.debug_maze_type is not None else random.randint(1, 4)
         generator = self._create_maze_generator(maze_type, min_wall_length, max_wall_length, orientation)
         self.maze = Maze(grid_size, tile_size, min_wall_length, max_wall_length, orientation, max_attempts, generator)
         self.collision_manager = CollisionManager(self.maze, self.config)
@@ -233,7 +235,12 @@ class BrainMaze:
 
 
 def main():
-    game = BrainMaze()
+    parser = argparse.ArgumentParser(description='BrainMaze - An educational maze game')
+    parser.add_argument('-m', '--maze-type', type=int, choices=[1, 2, 3, 4],
+                        help='Specify maze type (1-4) for debugging. If not specified, maze type is random.')
+    args = parser.parse_args()
+
+    game = BrainMaze(maze_type=args.maze_type)
     game.run()
 
 
