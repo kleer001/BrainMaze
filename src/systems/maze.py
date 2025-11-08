@@ -103,6 +103,12 @@ class Maze:
                     has_wall_west = x > 0 and self.grid[y][x-1] == WALL
                     has_wall_east = x < self.grid_size - 1 and self.grid[y][x+1] == WALL
 
+                    # Check diagonal neighbors for corner connections
+                    has_wall_nw = y > 0 and x > 0 and self.grid[y-1][x-1] == WALL
+                    has_wall_ne = y > 0 and x < self.grid_size - 1 and self.grid[y-1][x+1] == WALL
+                    has_wall_sw = y < self.grid_size - 1 and x > 0 and self.grid[y+1][x-1] == WALL
+                    has_wall_se = y < self.grid_size - 1 and x < self.grid_size - 1 and self.grid[y+1][x+1] == WALL
+
                     # Draw bright border only on edges facing non-walls
                     if not has_wall_north:  # Top edge
                         pygame.draw.rect(surface, bright_color,
@@ -118,6 +124,34 @@ class Maze:
                         pygame.draw.rect(surface, bright_color,
                                        pygame.Rect(rect.x + rect.width - border_width, rect.y,
                                                  border_width, rect.height))
+
+                    # Draw 8x8 corner pieces when there are diagonal neighbors
+                    # to properly connect walls at T-junctions and + intersections
+                    corner_size = 8
+
+                    # Northwest corner: draw if there's a diagonal neighbor
+                    if has_wall_nw and (not has_wall_north or not has_wall_west):
+                        pygame.draw.rect(surface, bright_color,
+                                       pygame.Rect(rect.x, rect.y, corner_size, corner_size))
+
+                    # Northeast corner: draw if there's a diagonal neighbor
+                    if has_wall_ne and (not has_wall_north or not has_wall_east):
+                        pygame.draw.rect(surface, bright_color,
+                                       pygame.Rect(rect.x + rect.width - corner_size, rect.y,
+                                                 corner_size, corner_size))
+
+                    # Southwest corner: draw if there's a diagonal neighbor
+                    if has_wall_sw and (not has_wall_south or not has_wall_west):
+                        pygame.draw.rect(surface, bright_color,
+                                       pygame.Rect(rect.x, rect.y + rect.height - corner_size,
+                                                 corner_size, corner_size))
+
+                    # Southeast corner: draw if there's a diagonal neighbor
+                    if has_wall_se and (not has_wall_south or not has_wall_east):
+                        pygame.draw.rect(surface, bright_color,
+                                       pygame.Rect(rect.x + rect.width - corner_size,
+                                                 rect.y + rect.height - corner_size,
+                                                 corner_size, corner_size))
                 else:
                     # Non-wall tiles use original color system
                     color = self._get_tile_color((x, y), colors)
