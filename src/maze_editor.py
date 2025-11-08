@@ -39,6 +39,7 @@ class ParameterEditor:
         self.grid_height = self.config.getint('Grid', 'height')
         self.tile_size = self.config.getint('Grid', 'tile_size')
         self.border_width = self.config.getint('Grid', 'border_width')
+        self.corner_radius = self.config.getint('Grid', 'corner_radius')
         self.maze_width = self.grid_width * self.tile_size
         self.maze_height = self.grid_height * self.tile_size
 
@@ -69,7 +70,7 @@ class ParameterEditor:
         for key, (ptype, val, _, _, _) in self.parameters.items():
             self.config.set('Generation', key, str(val))
 
-        self.maze = Maze(self.grid_width, self.tile_size, border_width=self.border_width)
+        self.maze = Maze(self.grid_width, self.tile_size, border_width=self.border_width, corner_radius=self.corner_radius)
         self.generation_count += 1
         self.last_generated = f"Generated #{self.generation_count}"
 

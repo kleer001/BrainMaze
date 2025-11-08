@@ -82,11 +82,12 @@ class BrainMaze:
         max_attempts = self.config.getint('Maze', 'max_generation_attempts')
         tile_size = self.config.getint('Maze', 'tile_size')
         border_width = self.config.getint('Maze', 'border_width')
+        corner_radius = self.config.getint('Maze', 'corner_radius')
 
         # Use debug_maze_type if specified, otherwise random
         maze_type = self.debug_maze_type if self.debug_maze_type is not None else random.randint(1, 4)
         generator = self._create_maze_generator(maze_type, min_wall_length, max_wall_length, orientation)
-        self.maze = Maze(grid_size, tile_size, min_wall_length, max_wall_length, orientation, max_attempts, generator, border_width)
+        self.maze = Maze(grid_size, tile_size, min_wall_length, max_wall_length, orientation, max_attempts, generator, border_width, corner_radius)
         self.collision_manager = CollisionManager(self.maze, self.config)
 
         self.all_sprites = pygame.sprite.Group()
