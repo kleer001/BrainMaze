@@ -40,9 +40,6 @@ class MazeType3(MazeGenerator):
         # Mirror the generated half
         self._mirror(grid, grid_size, half_size, is_vertical)
 
-        # Connect across the mirror line to ensure maze is not split
-        self._connect_mirror_line(grid, grid_size, half_size, is_vertical)
-
         return grid
 
     def _hunt_and_kill(self, grid, start_x, start_y, grid_size, half_size, is_vertical):
@@ -195,34 +192,3 @@ class MazeType3(MazeGenerator):
                     grid[j][mirror_i] = grid[j][i]
                 else:
                     grid[mirror_i][j] = grid[i][j]
-
-    def _connect_mirror_line(self, grid, grid_size, half_size, is_vertical):
-        """Create passages across the mirror line to connect both halves."""
-        mirror_line = grid_size // 2
-
-        if is_vertical:
-            # Mirror line is a vertical column
-            # Look for cells on both sides and connect them
-            for y in range(1, grid_size - 1, 2):  # Only check odd y coordinates (cell rows)
-                left_x = mirror_line - 1
-                right_x = mirror_line + 1
-
-                # Check if both sides have path cells
-                if (0 <= left_x < grid_size and 0 <= right_x < grid_size and
-                    grid[y][left_x] == PATH and grid[y][right_x] == PATH):
-                    # Randomly carve through the mirror line to connect (50% chance)
-                    if random.random() < 0.5:
-                        grid[y][mirror_line] = PATH
-        else:
-            # Mirror line is a horizontal row
-            # Look for cells on both sides and connect them
-            for x in range(1, grid_size - 1, 2):  # Only check odd x coordinates (cell columns)
-                top_y = mirror_line - 1
-                bottom_y = mirror_line + 1
-
-                # Check if both sides have path cells
-                if (0 <= top_y < grid_size and 0 <= bottom_y < grid_size and
-                    grid[top_y][x] == PATH and grid[bottom_y][x] == PATH):
-                    # Randomly carve through the mirror line to connect (50% chance)
-                    if random.random() < 0.5:
-                        grid[mirror_line][x] = PATH
