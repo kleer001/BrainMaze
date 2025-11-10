@@ -9,9 +9,10 @@ from systems.maze_constants import WALL, PATH
 
 class Maze:
     def __init__(self, grid_size, tile_size, min_wall_length=1, max_wall_length=5,
-                 orientation='vertical', max_attempts=100, generator=None):
+                 orientation='vertical', max_attempts=100, generator=None, corner_radius=4):
         self.grid_size = grid_size
         self.tile_size = tile_size
+        self.corner_radius = corner_radius
         self.max_attempts = max_attempts
         self.generator = generator or MazeType1(min_wall_length, max_wall_length, orientation)
         self.grid = []
@@ -88,62 +89,75 @@ class Maze:
     def render(self, surface, colors):
         bright_color, dark_color = self.wall_colors
         border_width = 8
+        floor_color = colors['floor']
 
         for y in range(self.grid_size):
             for x in range(self.grid_size):
                 rect = self._create_tile_rect(x, y)
 
                 if self.grid[y][x] == WALL:
-                    # Draw dark fill for entire wall tile
                     pygame.draw.rect(surface, dark_color, rect)
 
-                    # Check which edges face non-walls (should have bright border)
                     has_wall_north = y > 0 and self.grid[y-1][x] == WALL
                     has_wall_south = y < self.grid_size - 1 and self.grid[y+1][x] == WALL
                     has_wall_west = x > 0 and self.grid[y][x-1] == WALL
                     has_wall_east = x < self.grid_size - 1 and self.grid[y][x+1] == WALL
 
-                    # Draw bright border only on edges facing non-walls
-                    if not has_wall_north:  # Top edge
+                    if not has_wall_north:
                         pygame.draw.rect(surface, bright_color,
                                        pygame.Rect(rect.x, rect.y, rect.width, border_width))
-                    if not has_wall_south:  # Bottom edge
+                    if not has_wall_south:
                         pygame.draw.rect(surface, bright_color,
                                        pygame.Rect(rect.x, rect.y + rect.height - border_width,
                                                  rect.width, border_width))
-                    if not has_wall_west:  # Left edge
+                    if not has_wall_west:
                         pygame.draw.rect(surface, bright_color,
                                        pygame.Rect(rect.x, rect.y, border_width, rect.height))
-                    if not has_wall_east:  # Right edge
+                    if not has_wall_east:
                         pygame.draw.rect(surface, bright_color,
                                        pygame.Rect(rect.x + rect.width - border_width, rect.y,
                                                  border_width, rect.height))
 
-                    # Draw inside corner squares where perpendicular walls meet
-                    # Northwest inside corner: walls to north AND west
                     if has_wall_north and has_wall_west:
-                        pygame.draw.rect(surface, bright_color,
-                                       pygame.Rect(rect.x, rect.y, border_width, border_width))
-                    # Northeast inside corner: walls to north AND east
+                        self._draw_rounded_corner(surface, bright_color, rect.x, rect.y)
                     if has_wall_north and has_wall_east:
-                        pygame.draw.rect(surface, bright_color,
-                                       pygame.Rect(rect.x + rect.width - border_width, rect.y,
-                                                 border_width, border_width))
-                    # Southwest inside corner: walls to south AND west
+                        self._draw_rounded_corner(surface, bright_color, rect.x + rect.width, rect.y)
                     if has_wall_south and has_wall_west:
-                        pygame.draw.rect(surface, bright_color,
-                                       pygame.Rect(rect.x, rect.y + rect.height - border_width,
-                                                 border_width, border_width))
-                    # Southeast inside corner: walls to south AND east
+                        self._draw_rounded_corner(surface, bright_color, rect.x, rect.y + rect.height)
                     if has_wall_south and has_wall_east:
-                        pygame.draw.rect(surface, bright_color,
-                                       pygame.Rect(rect.x + rect.width - border_width,
-                                                 rect.y + rect.height - border_width,
-                                                 border_width, border_width))
+                        self._draw_rounded_corner(surface, bright_color, rect.x + rect.width, rect.y + rect.height)
+
+                    if has_wall_south and has_wall_east and not has_wall_north and not has_wall_west:
+                        self._draw_rounded_corner(surface, floor_color, rect.x, rect.y)
+                    if has_wall_south and has_wall_west and not has_wall_north and not has_wall_east:
+                        self._draw_rounded_corner(surface, floor_color, rect.x + rect.width, rect.y)
+                    if has_wall_north and has_wall_east and not has_wall_south and not has_wall_west:
+                        self._draw_rounded_corner(surface, floor_color, rect.x, rect.y + rect.height)
+                    if has_wall_north and has_wall_west and not has_wall_south and not has_wall_east:
+                        self._draw_rounded_corner(surface, floor_color, rect.x + rect.width, rect.y + rect.height)
+
                 else:
-                    # Non-wall tiles use original color system
                     color = self._get_tile_color((x, y), colors)
                     pygame.draw.rect(surface, color, rect)
+
+                    has_wall_north = y > 0 and self.grid[y-1][x] == WALL
+                    has_wall_south = y < self.grid_size - 1 and self.grid[y+1][x] == WALL
+                    has_wall_west = x > 0 and self.grid[y][x-1] == WALL
+                    has_wall_east = x < self.grid_size - 1 and self.grid[y][x+1] == WALL
+
+                    has_wall_nw = y > 0 and x > 0 and self.grid[y-1][x-1] == WALL
+                    has_wall_ne = y > 0 and x < self.grid_size - 1 and self.grid[y-1][x+1] == WALL
+                    has_wall_sw = y < self.grid_size - 1 and x > 0 and self.grid[y+1][x-1] == WALL
+                    has_wall_se = y < self.grid_size - 1 and x < self.grid_size - 1 and self.grid[y+1][x+1] == WALL
+
+                    if has_wall_north and has_wall_west and not has_wall_nw:
+                        self._draw_rounded_corner(surface, floor_color, rect.x, rect.y)
+                    if has_wall_north and has_wall_east and not has_wall_ne:
+                        self._draw_rounded_corner(surface, floor_color, rect.x + rect.width, rect.y)
+                    if has_wall_south and has_wall_west and not has_wall_sw:
+                        self._draw_rounded_corner(surface, floor_color, rect.x, rect.y + rect.height)
+                    if has_wall_south and has_wall_east and not has_wall_se:
+                        self._draw_rounded_corner(surface, floor_color, rect.x + rect.width, rect.y + rect.height)
 
     def _create_tile_rect(self, x, y):
         return pygame.Rect(x * self.tile_size, y * self.tile_size,
@@ -154,3 +168,6 @@ class Maze:
         if self.grid[y][x] == WALL:
             return colors['wall']
         return colors['floor']
+
+    def _draw_rounded_corner(self, surface, color, x, y):
+        pygame.draw.circle(surface, color, (x, y), self.corner_radius)
