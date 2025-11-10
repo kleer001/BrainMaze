@@ -118,6 +118,28 @@ class Maze:
                         pygame.draw.rect(surface, bright_color,
                                        pygame.Rect(rect.x + rect.width - border_width, rect.y,
                                                  border_width, rect.height))
+
+                    # Draw inside corner squares where perpendicular walls meet
+                    # Northwest inside corner: walls to north AND west
+                    if has_wall_north and has_wall_west:
+                        pygame.draw.rect(surface, bright_color,
+                                       pygame.Rect(rect.x, rect.y, border_width, border_width))
+                    # Northeast inside corner: walls to north AND east
+                    if has_wall_north and has_wall_east:
+                        pygame.draw.rect(surface, bright_color,
+                                       pygame.Rect(rect.x + rect.width - border_width, rect.y,
+                                                 border_width, border_width))
+                    # Southwest inside corner: walls to south AND west
+                    if has_wall_south and has_wall_west:
+                        pygame.draw.rect(surface, bright_color,
+                                       pygame.Rect(rect.x, rect.y + rect.height - border_width,
+                                                 border_width, border_width))
+                    # Southeast inside corner: walls to south AND east
+                    if has_wall_south and has_wall_east:
+                        pygame.draw.rect(surface, bright_color,
+                                       pygame.Rect(rect.x + rect.width - border_width,
+                                                 rect.y + rect.height - border_width,
+                                                 border_width, border_width))
                 else:
                     # Non-wall tiles use original color system
                     color = self._get_tile_color((x, y), colors)
