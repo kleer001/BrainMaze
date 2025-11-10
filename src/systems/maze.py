@@ -96,88 +96,68 @@ class Maze:
                 rect = self._create_tile_rect(x, y)
 
                 if self.grid[y][x] == WALL:
-                    # Draw dark fill for entire wall tile
                     pygame.draw.rect(surface, dark_color, rect)
 
-                    # Check which edges face non-walls (should have bright border)
                     has_wall_north = y > 0 and self.grid[y-1][x] == WALL
                     has_wall_south = y < self.grid_size - 1 and self.grid[y+1][x] == WALL
                     has_wall_west = x > 0 and self.grid[y][x-1] == WALL
                     has_wall_east = x < self.grid_size - 1 and self.grid[y][x+1] == WALL
 
-                    # Draw bright border only on edges facing non-walls
-                    if not has_wall_north:  # Top edge
+                    if not has_wall_north:
                         pygame.draw.rect(surface, bright_color,
                                        pygame.Rect(rect.x, rect.y, rect.width, border_width))
-                    if not has_wall_south:  # Bottom edge
+                    if not has_wall_south:
                         pygame.draw.rect(surface, bright_color,
                                        pygame.Rect(rect.x, rect.y + rect.height - border_width,
                                                  rect.width, border_width))
-                    if not has_wall_west:  # Left edge
+                    if not has_wall_west:
                         pygame.draw.rect(surface, bright_color,
                                        pygame.Rect(rect.x, rect.y, border_width, rect.height))
-                    if not has_wall_east:  # Right edge
+                    if not has_wall_east:
                         pygame.draw.rect(surface, bright_color,
                                        pygame.Rect(rect.x + rect.width - border_width, rect.y,
                                                  border_width, rect.height))
 
-                    # Draw inside corner rounded arcs where perpendicular walls meet
-                    # Northwest inside corner: walls to north AND west
                     if has_wall_north and has_wall_west:
-                        self._draw_inside_corner(surface, bright_color, rect.x, rect.y, 'nw')
-                    # Northeast inside corner: walls to north AND east
+                        self._draw_rounded_corner(surface, bright_color, rect.x, rect.y)
                     if has_wall_north and has_wall_east:
-                        self._draw_inside_corner(surface, bright_color, rect.x + rect.width, rect.y, 'ne')
-                    # Southwest inside corner: walls to south AND west
+                        self._draw_rounded_corner(surface, bright_color, rect.x + rect.width, rect.y)
                     if has_wall_south and has_wall_west:
-                        self._draw_inside_corner(surface, bright_color, rect.x, rect.y + rect.height, 'sw')
-                    # Southeast inside corner: walls to south AND east
+                        self._draw_rounded_corner(surface, bright_color, rect.x, rect.y + rect.height)
                     if has_wall_south and has_wall_east:
-                        self._draw_inside_corner(surface, bright_color, rect.x + rect.width, rect.y + rect.height, 'se')
+                        self._draw_rounded_corner(surface, bright_color, rect.x + rect.width, rect.y + rect.height)
 
-                    # Detect and draw outside corners (wall protruding into path)
-                    # NW outside corner: walls continue south & east, but not north & west
                     if has_wall_south and has_wall_east and not has_wall_north and not has_wall_west:
-                        self._draw_outside_corner_cut(surface, floor_color, rect.x, rect.y, 'nw')
-                    # NE outside corner: walls continue south & west, but not north & east
+                        self._draw_rounded_corner(surface, floor_color, rect.x, rect.y)
                     if has_wall_south and has_wall_west and not has_wall_north and not has_wall_east:
-                        self._draw_outside_corner_cut(surface, floor_color, rect.x + rect.width, rect.y, 'ne')
-                    # SW outside corner: walls continue north & east, but not south & west
+                        self._draw_rounded_corner(surface, floor_color, rect.x + rect.width, rect.y)
                     if has_wall_north and has_wall_east and not has_wall_south and not has_wall_west:
-                        self._draw_outside_corner_cut(surface, floor_color, rect.x, rect.y + rect.height, 'sw')
-                    # SE outside corner: walls continue north & west, but not south & east
+                        self._draw_rounded_corner(surface, floor_color, rect.x, rect.y + rect.height)
                     if has_wall_north and has_wall_west and not has_wall_south and not has_wall_east:
-                        self._draw_outside_corner_cut(surface, floor_color, rect.x + rect.width, rect.y + rect.height, 'se')
+                        self._draw_rounded_corner(surface, floor_color, rect.x + rect.width, rect.y + rect.height)
 
                 else:
-                    # Non-wall tiles (paths)
                     color = self._get_tile_color((x, y), colors)
                     pygame.draw.rect(surface, color, rect)
 
-                    # Draw rounded corners on path tiles adjacent to wall outside corners
                     has_wall_north = y > 0 and self.grid[y-1][x] == WALL
                     has_wall_south = y < self.grid_size - 1 and self.grid[y+1][x] == WALL
                     has_wall_west = x > 0 and self.grid[y][x-1] == WALL
                     has_wall_east = x < self.grid_size - 1 and self.grid[y][x+1] == WALL
 
-                    # Check diagonals for outside corners
                     has_wall_nw = y > 0 and x > 0 and self.grid[y-1][x-1] == WALL
                     has_wall_ne = y > 0 and x < self.grid_size - 1 and self.grid[y-1][x+1] == WALL
                     has_wall_sw = y < self.grid_size - 1 and x > 0 and self.grid[y+1][x-1] == WALL
                     has_wall_se = y < self.grid_size - 1 and x < self.grid_size - 1 and self.grid[y+1][x+1] == WALL
 
-                    # SE corner of path: if wall to north and wall to west but no wall NW diagonal
                     if has_wall_north and has_wall_west and not has_wall_nw:
-                        self._draw_path_corner(surface, floor_color, rect.x, rect.y, 'se')
-                    # SW corner of path: if wall to north and wall to east but no wall NE diagonal
+                        self._draw_rounded_corner(surface, floor_color, rect.x, rect.y)
                     if has_wall_north and has_wall_east and not has_wall_ne:
-                        self._draw_path_corner(surface, floor_color, rect.x + rect.width, rect.y, 'sw')
-                    # NE corner of path: if wall to south and wall to west but no wall SW diagonal
+                        self._draw_rounded_corner(surface, floor_color, rect.x + rect.width, rect.y)
                     if has_wall_south and has_wall_west and not has_wall_sw:
-                        self._draw_path_corner(surface, floor_color, rect.x, rect.y + rect.height, 'ne')
-                    # NW corner of path: if wall to south and wall to east but no wall SE diagonal
+                        self._draw_rounded_corner(surface, floor_color, rect.x, rect.y + rect.height)
                     if has_wall_south and has_wall_east and not has_wall_se:
-                        self._draw_path_corner(surface, floor_color, rect.x + rect.width, rect.y + rect.height, 'nw')
+                        self._draw_rounded_corner(surface, floor_color, rect.x + rect.width, rect.y + rect.height)
 
     def _create_tile_rect(self, x, y):
         return pygame.Rect(x * self.tile_size, y * self.tile_size,
@@ -189,24 +169,5 @@ class Maze:
             return colors['wall']
         return colors['floor']
 
-    def _draw_inside_corner(self, surface, color, x, y, corner):
-        """Draw a rounded inside corner (bright arc where two walls meet)"""
-        radius = self.corner_radius
-
-        # Draw a small filled circle at the corner intersection point
-        # The radius is small enough (4px) that it creates a nice rounded corner effect
-        pygame.draw.circle(surface, color, (x, y), radius)
-
-    def _draw_outside_corner_cut(self, surface, color, x, y, corner):
-        """Draw a quarter-circle cut in floor color to round off wall outside corners"""
-        radius = self.corner_radius
-
-        # Draw a filled circle at the corner to "cut" it and create a rounded appearance
-        pygame.draw.circle(surface, color, (x, y), radius)
-
-    def _draw_path_corner(self, surface, color, x, y, corner):
-        """Draw a rounded corner on path tiles adjacent to wall outside corners"""
-        radius = self.corner_radius
-
-        # Draw a filled circle at the path tile corner to match the wall's rounded corner
-        pygame.draw.circle(surface, color, (x, y), radius)
+    def _draw_rounded_corner(self, surface, color, x, y):
+        pygame.draw.circle(surface, color, (x, y), self.corner_radius)
