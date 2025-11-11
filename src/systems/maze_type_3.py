@@ -87,7 +87,10 @@ class MazeType3(MazeGenerator):
 
     def _mirror(self, grid, grid_size, half_size, is_vertical):
         """Mirror the generated half to create symmetry."""
-        for i in range(half_size):
+        # Mirror only up to center (not including center column/row)
+        # This prevents doubling the center axis
+        mirror_count = grid_size // 2
+        for i in range(mirror_count):
             mirror_i = grid_size - 1 - i
             for j in range(grid_size):
                 if is_vertical:
