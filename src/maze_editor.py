@@ -11,27 +11,34 @@ from systems.maze_constants import WALL, PATH
 class ParameterEditor:
     """Interactive parameter editor for maze generation."""
 
-    def __init__(self, config_path='config/maze_config.ini'):
+    def __init__(self, config_path='config/maze_config.ini', gameplay_config_path='config/gameplay.ini'):
         pygame.init()
 
+        # Load both configs: maze_config for editor-specific settings,
+        # gameplay config for shared colors (single source of truth)
         self.config = configparser.ConfigParser()
         self.config.read(config_path)
         self.config_path = config_path
+
+        self.gameplay_config = configparser.ConfigParser()
+        self.gameplay_config.read(gameplay_config_path)
 
         self.window_width = self.config.getint('Display', 'window_width')
         self.window_height = self.config.getint('Display', 'window_height')
         self.fps = self.config.getint('Display', 'fps')
 
         self.screen = pygame.display.set_mode((self.window_width, self.window_height))
-        pygame.display.set_caption(self.config.get('Display', 'title'))
+        pygame.display.set_caption(self.config.get('Display', 'window_title'))
         self.clock = pygame.time.Clock()
 
+        # Shared colors from gameplay.ini (single source of truth)
+        # Editor-specific colors from maze_config.ini
         self.colors = {
-            'background': tuple(map(int, self.config.get('Colors', 'background').split(','))),
-            'wall': tuple(map(int, self.config.get('Colors', 'wall').split(','))),
+            'background': tuple(map(int, self.gameplay_config.get('Colors', 'background').split(','))),
+            'wall': tuple(map(int, self.gameplay_config.get('Colors', 'wall').split(','))),
             'corridor': tuple(map(int, self.config.get('Colors', 'corridor').split(','))),
-            'start': tuple(map(int, self.config.get('Colors', 'start_tile').split(','))),
-            'end': tuple(map(int, self.config.get('Colors', 'end_tile').split(','))),
+            'start': tuple(map(int, self.gameplay_config.get('Colors', 'start_tile').split(','))),
+            'end': tuple(map(int, self.gameplay_config.get('Colors', 'end_tile').split(','))),
             'grid': tuple(map(int, self.config.get('Colors', 'grid_lines').split(','))),
         }
 
