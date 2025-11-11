@@ -75,7 +75,8 @@ class BrainMaze:
         return tuple(map(int, self.config.get('Colors', color_key).split(',')))
 
     def _initialize_level(self):
-        grid_size = self.config.getint('Maze', 'grid_size')
+        # Get dynamic grid size based on current level
+        grid_size = self.game_state.get_grid_size_for_level()
         min_wall_length = self.config.getint('Maze', 'min_wall_length')
         max_wall_length = self.config.getint('Maze', 'max_wall_length')
         orientation = self.config.get('Maze', 'orientation')

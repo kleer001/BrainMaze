@@ -19,6 +19,11 @@ class GameState:
         self.total_facts_captured = 0
         self.total_facts_available = self._count_total_facts()
 
+        # Load maze size progression parameters
+        self.grid_size_min = self.config.getint('Maze', 'grid_size_min')
+        self.grid_size_max = self.config.getint('Maze', 'grid_size_max')
+        self.grid_size_progression_levels = self.config.getint('Maze', 'grid_size_progression_levels')
+
     def _count_total_facts(self):
         total = 0
         for fact_type in self.fact_types:
@@ -58,3 +63,29 @@ class GameState:
         self.captured_facts = []
         self.current_fact_type = self._next_fact_type()
         return facts_to_display
+
+    def get_grid_size_for_level(self):
+        """
+        Calculate grid size based on current level using linear interpolation.
+
+        The grid grows from grid_size_min to grid_size_max over
+        grid_size_progression_levels. After that, it stays at max size.
+        Grid size is always odd to ensure proper maze generation.
+
+        Returns:
+            int: Odd integer grid size for the current level
+        """
+        if self.current_level >= self.grid_size_progression_levels:
+            # Reached max level, use max size
+            size = self.grid_size_max
+        else:
+            # Linear interpolation from min to max
+            progress = (self.current_level - 1) / (self.grid_size_progression_levels - 1)
+            size = self.grid_size_min + progress * (self.grid_size_max - self.grid_size_min)
+            size = int(size)
+
+        # Ensure grid size is odd (required for proper maze generation)
+        if size % 2 == 0:
+            size += 1
+
+        return size
