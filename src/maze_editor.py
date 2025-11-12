@@ -75,7 +75,8 @@ class ParameterEditor:
         for key, (ptype, val, _, _, _) in self.parameters.items():
             self.config.set('Generation', key, str(val))
 
-        self.maze = Maze(self.grid_width, self.tile_size)
+        self.maze = Maze(self.grid_width, self.tile_size, window_width=self.window_width,
+                        window_height=self.window_height)
         self.generation_count += 1
         self.last_generated = f"Generated #{self.generation_count}"
 

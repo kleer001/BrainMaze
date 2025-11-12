@@ -9,9 +9,14 @@ from systems.maze_constants import WALL, PATH
 
 class Maze:
     def __init__(self, grid_size, tile_size, min_wall_length=1, max_wall_length=5,
-                 orientation='vertical', max_attempts=100, generator=None, corner_radius=4):
+                 orientation='vertical', max_attempts=100, generator=None, corner_radius=4,
+                 window_width=800, window_height=880):
         self.grid_size = grid_size
-        self.tile_size = tile_size
+        self.window_width = window_width
+        self.window_height = window_height
+        self.base_tile_size = tile_size
+        self.tile_size = self._calculate_tile_size()
+        self.offset_x, self.offset_y = self._calculate_offsets()
         self.corner_radius = corner_radius
         self.max_attempts = max_attempts
         self.generator = generator or MazeType1(min_wall_length, max_wall_length, orientation)
@@ -20,6 +25,18 @@ class Maze:
         self.end_pos = None
         self.wall_colors = self._generate_wall_colors()
         self._generate()
+
+    def _calculate_tile_size(self):
+        max_tile_width = self.window_width / self.grid_size
+        max_tile_height = self.window_height / self.grid_size
+        return int(min(max_tile_width, max_tile_height, self.base_tile_size))
+
+    def _calculate_offsets(self):
+        maze_width = self.grid_size * self.tile_size
+        maze_height = self.grid_size * self.tile_size
+        offset_x = (self.window_width - maze_width) // 2
+        offset_y = (self.window_height - maze_height) // 2
+        return offset_x, offset_y
 
     def _generate(self):
         for _ in range(self.max_attempts):
@@ -160,7 +177,8 @@ class Maze:
                         self._draw_rounded_corner(surface, floor_color, rect.x + rect.width, rect.y + rect.height)
 
     def _create_tile_rect(self, x, y):
-        return pygame.Rect(x * self.tile_size, y * self.tile_size,
+        return pygame.Rect(self.offset_x + x * self.tile_size,
+                          self.offset_y + y * self.tile_size,
                           self.tile_size, self.tile_size)
 
     def _get_tile_color(self, pos, colors):
