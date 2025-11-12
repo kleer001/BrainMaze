@@ -93,7 +93,7 @@ class BrainMaze:
         self.enemies = pygame.sprite.Group()
 
         start_x, start_y = self.maze.get_start_position()
-        self.player = Player(start_x, start_y, self.config, self.collision_manager)
+        self.player = Player(start_x, start_y, self.config, self.collision_manager, self.maze)
         self.all_sprites.add(self.player)
 
         self.available_facts = self.fact_loader.load_facts_for_fact_type(self.game_state.current_fact_type).copy()
@@ -136,7 +136,7 @@ class BrainMaze:
         spawn_x, spawn_y = self._find_enemy_spawn_position()
         fact = self.available_facts.pop()
 
-        enemy = Enemy(spawn_x, spawn_y, self.config, self.collision_manager, emoji, behavior, fact)
+        enemy = Enemy(spawn_x, spawn_y, self.config, self.collision_manager, self.maze, emoji, behavior, fact)
         self.enemies.add(enemy)
         self.all_sprites.add(enemy)
 
