@@ -30,23 +30,15 @@ class Player(pygame.sprite.Sprite):
     Player sprite with continuous movement and industry-standard input buffering.
     """
     
-    def __init__(self, x, y, config, collision_manager):
-        """
-        Initialize player at grid position (x, y).
-
-        Args:
-            x: Grid X position (tile coordinates)
-            y: Grid Y position (tile coordinates)
-            config: ConfigParser object with gameplay settings
-            collision_manager: CollisionManager instance for wall detection
-        """
+    def __init__(self, x, y, config, collision_manager, maze):
         super().__init__()
 
-        # Store collision manager
         self.collision_manager = collision_manager
-        
-        # Load configuration
-        self.tile_size = config.getint('Maze', 'tile_size')
+        self.maze = maze
+        self.tile_size = maze.tile_size
+        self.offset_x = maze.offset_x
+        self.offset_y = maze.offset_y
+
         self.base_speed = config.getfloat('Player', 'base_speed')
         self.input_buffer_duration = config.getfloat('Player', 'input_buffer_duration')
         self.corner_forgiveness = config.getint('Player', 'corner_forgiveness')
@@ -60,7 +52,6 @@ class Player(pygame.sprite.Sprite):
 
         self.speed_pixels_per_second = self.base_speed * self.tile_size
 
-        # Create brain emoji sprite
         emoji_size = self.tile_size - 4
         brain_emoji = load_emoji('🧠', (emoji_size, emoji_size))
         self.image = pygame.Surface((emoji_size, emoji_size), pygame.SRCALPHA)
@@ -68,18 +59,15 @@ class Player(pygame.sprite.Sprite):
         self.base_image = self.image.copy()
         self.facing_right = True
 
-        # Store spawn position for respawn
         self.spawn_x = x
         self.spawn_y = y
-        
-        # Position (center of tile in pixel coordinates)
+
         self.rect = self.image.get_rect()
         self.rect.center = (
-            x * self.tile_size + self.tile_size // 2,
-            y * self.tile_size + self.tile_size // 2
+            self.offset_x + x * self.tile_size + self.tile_size // 2,
+            self.offset_y + y * self.tile_size + self.tile_size // 2
         )
-        
-        # Use float position for smooth movement
+
         self.pos = Vector2(self.rect.centerx, self.rect.centery)
         
         # Movement state
@@ -307,8 +295,8 @@ class Player(pygame.sprite.Sprite):
             self._update_facing(True)
 
         self.target_pos = Vector2(
-            target_tile_x * self.tile_size + self.tile_size // 2,
-            target_tile_y * self.tile_size + self.tile_size // 2
+            self.offset_x + target_tile_x * self.tile_size + self.tile_size // 2,
+            self.offset_y + target_tile_y * self.tile_size + self.tile_size // 2
         )
     
     def _update_facing(self, facing_right):
@@ -324,24 +312,13 @@ class Player(pygame.sprite.Sprite):
             self.base_image = self.image.copy()
 
     def get_tile_position(self):
-        """
-        Get current position in tile coordinates.
-
-        Returns:
-            tuple: (tile_x, tile_y)
-        """
-        tile_x = int(self.pos.x // self.tile_size)
-        tile_y = int(self.pos.y // self.tile_size)
+        tile_x = int((self.pos.x - self.offset_x) // self.tile_size)
+        tile_y = int((self.pos.y - self.offset_y) // self.tile_size)
         return (tile_x, tile_y)
 
     def respawn(self):
-        """
-        Respawn player at spawn position with invincibility.
-        Called when player collides with enemy.
-        """
-        # Reset position to spawn
-        spawn_pixel_x = self.spawn_x * self.tile_size + self.tile_size // 2
-        spawn_pixel_y = self.spawn_y * self.tile_size + self.tile_size // 2
+        spawn_pixel_x = self.offset_x + self.spawn_x * self.tile_size + self.tile_size // 2
+        spawn_pixel_y = self.offset_y + self.spawn_y * self.tile_size + self.tile_size // 2
         self.pos.x = spawn_pixel_x
         self.pos.y = spawn_pixel_y
         self.rect.center = (int(self.pos.x), int(self.pos.y))

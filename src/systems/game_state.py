@@ -19,6 +19,11 @@ class GameState:
         self.total_facts_captured = 0
         self.total_facts_available = self._count_total_facts()
 
+        # Load maze size progression parameters
+        self.grid_size_min = self.config.getint('Maze', 'grid_size_min')
+        self.grid_size_max = self.config.getint('Maze', 'grid_size_max')
+        self.grid_size_progression_levels = self.config.getint('Maze', 'grid_size_progression_levels')
+
     def _count_total_facts(self):
         total = 0
         for fact_type in self.fact_types:
@@ -58,3 +63,16 @@ class GameState:
         self.captured_facts = []
         self.current_fact_type = self._next_fact_type()
         return facts_to_display
+
+    def get_grid_size_for_level(self):
+        if self.current_level >= self.grid_size_progression_levels:
+            size = self.grid_size_max
+        else:
+            progress = (self.current_level - 1) / (self.grid_size_progression_levels - 1)
+            size = self.grid_size_min + progress * (self.grid_size_max - self.grid_size_min)
+            size = int(size)
+
+        if size % 2 == 0:
+            size += 1
+
+        return size

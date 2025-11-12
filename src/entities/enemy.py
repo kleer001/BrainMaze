@@ -16,62 +16,54 @@ class Enemy(pygame.sprite.Sprite):
     Moves through the maze with wall collision detection.
     """
 
-    def __init__(self, x, y, config, collision_manager, emoji="🐱", behavior_type=None, fact=""):
+    def __init__(self, x, y, config, collision_manager, maze, emoji="🐱", behavior_type=None, fact=""):
         super().__init__()
 
         self.config = config
         self.collision_manager = collision_manager
+        self.maze = maze
         self.behavior_type_override = behavior_type
         self.fact = fact
 
-        # Load tile size from maze config
-        self.tile_size = config.getint('Maze', 'tile_size')
+        self.tile_size = maze.tile_size
+        self.offset_x = maze.offset_x
+        self.offset_y = maze.offset_y
 
-        # Randomize attributes
         speed_min = config.getint('Attributes', 'speed_min')
         speed_max = config.getint('Attributes', 'speed_max')
         awareness_min = config.getint('Attributes', 'awareness_min')
         awareness_max = config.getint('Attributes', 'awareness_max')
 
-        self.speed = random.randint(speed_min, speed_max)  # Tiles per second
-        self.awareness = random.randint(awareness_min, awareness_max)  # Tile radius
+        self.speed = random.randint(speed_min, speed_max)
+        self.awareness = random.randint(awareness_min, awareness_max)
 
-        # Movement configuration
-        self.update_interval = config.getint('Movement', 'update_interval')  # frames
+        self.update_interval = config.getint('Movement', 'update_interval')
         self.frame_counter = 0
 
-        # Position tracking
         self.tile_x = x
         self.tile_y = y
 
-        # Create visual representation (emoji)
         self.render_emoji = True
         self.emoji = emoji
 
-        # Create surface for rendering
         if self.render_emoji:
-            # Use pygame-emojis to render emoji with proper color support
             emoji_size = int(self.tile_size * 0.8)
             emoji_surface = load_emoji(self.emoji, (emoji_size, emoji_size))
 
-            # Create image surface
             self.image = pygame.Surface((self.tile_size - 4, self.tile_size - 4), pygame.SRCALPHA)
-            self.image.fill((0, 0, 0, 0))  # Transparent background
+            self.image.fill((0, 0, 0, 0))
 
-            # Center the emoji on the surface
             emoji_rect = emoji_surface.get_rect(center=(self.image.get_width() // 2, self.image.get_height() // 2))
             self.image.blit(emoji_surface, emoji_rect)
         else:
-            # Fallback to colored rectangle
             self.image = pygame.Surface((self.tile_size - 4, self.tile_size - 4))
             color = tuple(map(int, config.get('Colors', 'enemy').split(',')))
             self.image.fill(color)
 
-        # Position sprite
         self.rect = self.image.get_rect()
         self.rect.center = (
-            x * self.tile_size + self.tile_size // 2,
-            y * self.tile_size + self.tile_size // 2
+            self.offset_x + x * self.tile_size + self.tile_size // 2,
+            self.offset_y + y * self.tile_size + self.tile_size // 2
         )
 
         # Initialize behavior (random selection for Phase A5)
@@ -130,12 +122,6 @@ class Enemy(pygame.sprite.Sprite):
         )
 
     def move_in_direction(self, direction):
-        """
-        Move enemy one tile in the given direction.
-
-        Args:
-            direction: 'up', 'down', 'left', or 'right'
-        """
         if direction == 'up':
             self.tile_y -= 1
         elif direction == 'down':
@@ -145,10 +131,9 @@ class Enemy(pygame.sprite.Sprite):
         elif direction == 'right':
             self.tile_x += 1
 
-        # Update sprite position to match tile position
         self.rect.center = (
-            self.tile_x * self.tile_size + self.tile_size // 2,
-            self.tile_y * self.tile_size + self.tile_size // 2
+            self.offset_x + self.tile_x * self.tile_size + self.tile_size // 2,
+            self.offset_y + self.tile_y * self.tile_size + self.tile_size // 2
         )
 
     def update(self, dt, player_pos):

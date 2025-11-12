@@ -23,7 +23,7 @@ class MazeType1(MazeGenerator):
         for line in range(1, half_size, 2):
             self._fill_line(grid, grid_size, line, is_vertical)
 
-        self._mirror(grid, grid_size, half_size, is_vertical)
+        self._mirror(grid, grid_size, is_vertical)
 
     def _fill_line(self, grid, grid_size, line, is_vertical):
         position = 0
@@ -49,12 +49,3 @@ class MazeType1(MazeGenerator):
 
     def _random_wall_length(self):
         return random.randint(self.min_wall_length, self.max_wall_length)
-
-    def _mirror(self, grid, grid_size, half_size, is_vertical):
-        for i in range(half_size):
-            mirror_i = grid_size - 1 - i
-            for j in range(grid_size):
-                if is_vertical:
-                    grid[j][mirror_i] = grid[j][i]
-                else:
-                    grid[mirror_i][j] = grid[i][j]

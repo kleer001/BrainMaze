@@ -75,7 +75,7 @@ class BrainMaze:
         return tuple(map(int, self.config.get('Colors', color_key).split(',')))
 
     def _initialize_level(self):
-        grid_size = self.config.getint('Maze', 'grid_size')
+        grid_size = self.game_state.get_grid_size_for_level()
         min_wall_length = self.config.getint('Maze', 'min_wall_length')
         max_wall_length = self.config.getint('Maze', 'max_wall_length')
         orientation = self.config.get('Maze', 'orientation')
@@ -83,17 +83,17 @@ class BrainMaze:
         tile_size = self.config.getint('Maze', 'tile_size')
         corner_radius = self.config.getint('Maze', 'corner_radius')
 
-        # Use debug_maze_type if specified, otherwise random
         maze_type = self.debug_maze_type if self.debug_maze_type is not None else random.randint(1, 4)
         generator = self._create_maze_generator(maze_type, min_wall_length, max_wall_length, orientation)
-        self.maze = Maze(grid_size, tile_size, min_wall_length, max_wall_length, orientation, max_attempts, generator, corner_radius)
+        self.maze = Maze(grid_size, tile_size, min_wall_length, max_wall_length, orientation, max_attempts,
+                        generator, corner_radius, self.window_width, self.window_height)
         self.collision_manager = CollisionManager(self.maze, self.config)
 
         self.all_sprites = pygame.sprite.Group()
         self.enemies = pygame.sprite.Group()
 
         start_x, start_y = self.maze.get_start_position()
-        self.player = Player(start_x, start_y, self.config, self.collision_manager)
+        self.player = Player(start_x, start_y, self.config, self.collision_manager, self.maze)
         self.all_sprites.add(self.player)
 
         self.available_facts = self.fact_loader.load_facts_for_fact_type(self.game_state.current_fact_type).copy()
@@ -136,7 +136,7 @@ class BrainMaze:
         spawn_x, spawn_y = self._find_enemy_spawn_position()
         fact = self.available_facts.pop()
 
-        enemy = Enemy(spawn_x, spawn_y, self.config, self.collision_manager, emoji, behavior, fact)
+        enemy = Enemy(spawn_x, spawn_y, self.config, self.collision_manager, self.maze, emoji, behavior, fact)
         self.enemies.add(enemy)
         self.all_sprites.add(enemy)
 
